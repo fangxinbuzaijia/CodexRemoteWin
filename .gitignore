@@ -1,0 +1,27 @@
+# Runtime state and private data
+/data/
+*.log
+auth.json
+
+# Local build outputs
+*.exe
+*.exe~
+*.syso
+*.zip
+*.tmp
+/dist/
+
+# Local build tools
+/tools/
+
+# Generated icon previews and source material
+/assets/*
+!/assets/codex-remote-icon-192.png
+!/assets/codex-remote-icon-512.png
+!/assets/codex-remote-icon.ico
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
