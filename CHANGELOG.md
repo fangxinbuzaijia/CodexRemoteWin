@@ -10,4 +10,5 @@
 - Added image and general file attachment uploads.
 - Added optional startup with Windows.
 - Added a blue application icon for the executable and taskbar.
+- Included the tested Windows client binary in `client/` and the GitHub Release.
 - Added public repository documentation, security guidance, tests, and CI builds.

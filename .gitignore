@@ -14,6 +14,12 @@ auth.json
 # Local build tools
 /tools/
 
+# Published Windows client kept in the source repository
+/client/
+!/client/
+!/client/CodexRemoteWin.exe
+!/client/CodexRemoteWin.exe.sha256
+
 # Generated icon previews and source material
 /assets/*
 !/assets/codex-remote-icon-192.png

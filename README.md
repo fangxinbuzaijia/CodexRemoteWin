@@ -8,6 +8,12 @@
 
 > 本项目不是 OpenAI 官方产品，也不是 Codex Mini 的官方 Windows 版本。
 
+## Windows 客户端
+
+- [直接下载 Windows 客户端 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.10.4/CodexRemoteWin.exe)
+- [查看全部版本和校验文件](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases)
+- 仓库中的 `client/CodexRemoteWin.exe` 是与当前公开版本对应的单文件客户端。
+
 ## 功能
 
 - 响应式手机和桌面网页界面
@@ -94,7 +100,7 @@ cd CodexRemoteWin
 .\build.ps1
 ```
 
-生成文件位于 `dist/CodexRemoteWin.exe`。Windows 图标资源已经以 `rsrc_windows_amd64.syso` 的形式提交，无需额外安装资源编译工具。
+生成文件位于 `dist/CodexRemoteWin.exe`。构建脚本会自动生成 Windows 图标资源；本地存在 `tools/rsrc.exe` 时直接使用，否则会按固定版本下载并运行资源工具。
 
 ## 工作原理
 
