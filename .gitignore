@@ -1,5 +1,5 @@
 # Runtime state and private data
-/data/
+data/
 *.log
 auth.json
 
@@ -15,8 +15,7 @@ auth.json
 /tools/
 
 # Published Windows client kept in the source repository
-/client/
-!/client/
+/client/*
 !/client/CodexRemoteWin.exe
 !/client/CodexRemoteWin.exe.sha256
 

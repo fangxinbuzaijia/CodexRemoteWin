@@ -38,7 +38,7 @@ import (
 
 const (
 	appName            = "Codex Remote Win"
-	appVersion         = "0.10.4-send-retry"
+	appVersion         = "0.11.0-beta.1"
 	appIconResourceID  = 1
 	defaultHost        = "0.0.0.0"
 	defaultPort        = "8787"
@@ -59,6 +59,18 @@ var appIcon192PNG []byte
 
 //go:embed assets/codex-remote-icon-512.png
 var appIcon512PNG []byte
+
+//go:embed web/v11.js
+var webV11 string
+
+func projectPage() string {
+	page := indexHTMLProjects
+	if i := strings.LastIndex(page, "boot();"); i >= 0 {
+		page = page[:i] + page[i+len("boot();"):]
+	}
+	page = strings.Replace(page, "v0.10</span>", "v0.11</span>", 1)
+	return strings.Replace(page, "</body>", `<script src="/v11.js"></script></body>`, 1)
+}
 
 type session struct {
 	TokenHash string    `json:"tokenHash"`
@@ -86,10 +98,11 @@ type threadRow struct {
 }
 
 type messageRow struct {
-	Seq       int    `json:"seq"`
-	Role      string `json:"role"`
-	Text      string `json:"text"`
-	Timestamp string `json:"timestamp"`
+	Seq         int            `json:"seq"`
+	Role        string         `json:"role"`
+	Text        string         `json:"text"`
+	Timestamp   string         `json:"timestamp"`
+	Attachments []uploadRecord `json:"attachments,omitempty"`
 }
 
 type attachmentInput struct {
@@ -121,6 +134,7 @@ type serverState struct {
 	recent   map[string]sendReceipt
 	cacheMu  sync.Mutex
 	threads  map[string]threadCacheEntry
+	desktop  desktopCaller
 }
 
 type threadCacheEntry struct {
@@ -197,6 +211,7 @@ func main() {
 		threads:  map[string]threadCacheEntry{},
 	}
 	state.loadTrusted()
+	state.desktop = &nativeDesktop{contextID: state.desktopContextID()}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", state.handle)
@@ -324,13 +339,19 @@ func (s *serverState) handle(w http.ResponseWriter, r *http.Request) {
 	if path == "/" || path == "/index.html" {
 		w.Header().Set("content-type", "text/html; charset=utf-8")
 		w.Header().Set("cache-control", "no-store")
-		_, _ = io.WriteString(w, indexHTMLProjects)
+		_, _ = io.WriteString(w, projectPage())
 		return
 	}
 	if path == "/manifest.webmanifest" {
 		w.Header().Set("content-type", "application/manifest+json; charset=utf-8")
 		w.Header().Set("cache-control", "no-store")
 		_, _ = io.WriteString(w, manifestJSON)
+		return
+	}
+	if path == "/v11.js" {
+		w.Header().Set("content-type", "application/javascript; charset=utf-8")
+		w.Header().Set("cache-control", "no-store")
+		_, _ = io.WriteString(w, webV11)
 		return
 	}
 	if path == "/icon-192.png" || path == "/icon-512.png" || path == "/icon-blue-192.png" || path == "/icon-blue-512.png" {
@@ -351,19 +372,21 @@ func (s *serverState) handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *serverState) handleAPI(w http.ResponseWriter, r *http.Request) {
+	if s.handleV11API(w, r) {
+		return
+	}
 	switch r.URL.Path {
 	case "/api/health":
-		cdp := detectCDP()
 		writeJSON(w, http.StatusOK, map[string]any{
-			"ok":      true,
-			"service": appName,
-			"version": appVersion,
-			"host":    hostname(),
-			"bind":    s.host,
-			"port":    s.port,
-			"lanUrls": lanURLs(s.port),
-			"cdp":     cdp,
-			"now":     time.Now().Format(time.RFC3339),
+			"ok":        true,
+			"service":   appName,
+			"version":   appVersion,
+			"host":      hostname(),
+			"bind":      s.host,
+			"port":      s.port,
+			"lanUrls":   lanURLs(s.port),
+			"transport": "desktop-app-tools",
+			"now":       time.Now().Format(time.RFC3339),
 		})
 	case "/api/pair":
 		if r.Method != http.MethodPost {
@@ -1762,28 +1785,33 @@ func fileSize(path string) int64 {
 
 func waitForUserMessage(path, text string, offset int64, timeout time.Duration) bool {
 	target := strings.TrimSpace(text)
-	if path == "" || target == "" {
-		return true
+	if path == "" || target == "" || offset < 0 {
+		return false
 	}
-	scanFrom := offset - 64*1024
-	if scanFrom < 0 {
-		scanFrom = 0
-	}
+	scanFrom := offset
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		file, err := os.Open(path)
 		if err == nil {
-			if info, statErr := file.Stat(); statErr == nil && info.Size() < scanFrom {
-				scanFrom = 0
+			if info, statErr := file.Stat(); statErr != nil || info.Size() < scanFrom {
+				_ = file.Close()
+				return false
+			}
+			atBoundary := true
+			if scanFrom > 0 {
+				_, _ = file.Seek(scanFrom-1, io.SeekStart)
+				var previous [1]byte
+				_, _ = file.Read(previous[:])
+				atBoundary = previous[0] == '\n'
 			}
 			_, _ = file.Seek(scanFrom, io.SeekStart)
-			reader := bufio.NewReaderSize(file, 64*1024)
-			if scanFrom > 0 {
+			reader := bufio.NewReaderSize(io.LimitReader(file, 8*1024*1024), 64*1024)
+			if !atBoundary {
 				_, _ = reader.ReadBytes('\n')
 			}
 			for {
 				line, readErr := reader.ReadBytes('\n')
-				if len(line) > 0 && messageLineContainsText(line, target) {
+				if readErr == nil && messageLineContainsText(line, target) {
 					_ = file.Close()
 					return true
 				}
@@ -1793,7 +1821,13 @@ func waitForUserMessage(path, text string, offset int64, timeout time.Duration) 
 			}
 			_ = file.Close()
 		}
-		time.Sleep(180 * time.Millisecond)
+		delay := time.Until(deadline)
+		if delay > 180*time.Millisecond {
+			delay = 180 * time.Millisecond
+		}
+		if delay > 0 {
+			time.Sleep(delay)
+		}
 	}
 	return false
 }
@@ -1805,14 +1839,14 @@ func messageLineContainsText(line []byte, target string) bool {
 	}
 	payload := asMap(item["payload"])
 	if item["type"] == "event_msg" && payload["type"] == "user_message" {
-		return strings.Contains(strings.TrimSpace(fmt.Sprint(payload["message"])), target)
+		return strings.TrimSpace(asString(payload["message"])) == target
 	}
 	if item["type"] != "response_item" || payload["type"] != "message" || payload["role"] != "user" {
 		return false
 	}
 	for _, part := range asSlice(payload["content"]) {
 		content := asMap(part)
-		if content["type"] == "input_text" && strings.Contains(strings.TrimSpace(asString(content["text"])), target) {
+		if content["type"] == "input_text" && strings.TrimSpace(asString(content["text"])) == target {
 			return true
 		}
 	}

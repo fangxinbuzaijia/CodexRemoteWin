@@ -18,6 +18,9 @@ func TestMessageLineContainsTextFormats(t *testing.T) {
 			t.Fatalf("format %d was not recognized", i)
 		}
 	}
+	if messageLineContainsText([]byte(`{"type":"event_msg","payload":{"type":"user_message","message":"hello world"}}`), "hello") {
+		t.Fatal("a substring was mistaken for the submitted message")
+	}
 }
 
 func TestWaitForUserMessageAfterOffset(t *testing.T) {

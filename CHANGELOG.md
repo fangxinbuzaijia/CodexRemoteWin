@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.11.0-beta.1 - 2026-09-07
+
+- Added a native Windows desktop app-tools bridge with automatic pipe discovery.
+- Replaced log-derived task listings and local title/archive/pin overrides with desktop queries and mutations.
+- Added project selection and local/worktree environment selection for first-message task creation.
+- Added persistent delivery receipts and duplicate-request detection, including uncertain-result handling across restarts.
+- Added individual multipart attachment uploads, progress, authenticated downloads, and historical attachment cards.
+- Added per-task drafts and cancellation of stale history requests.
+- Added API and desktop-protocol regression tests and a browser-test fixture.
+- The new bridge currently supports local Codex tasks and sends attachments as local file references. Stop, model controls, SSH tasks and token streaming remain unavailable in this version.
+- Verified read-only access against desktop build 26.901.5280.0. Mutation workflows were tested using a simulated desktop, pending user testing on real tasks.
+
 ## v0.10.4 - 2026-09-02
 
 - Added a Windows tray application with no console window.
