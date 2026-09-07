@@ -10,14 +10,15 @@
 
 ## Windows 客户端
 
-- [下载 v0.11.0-beta.1 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.1/CodexRemoteWin.exe)
+- [下载 v0.11.0-beta.2 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.2/CodexRemoteWin.exe)
 - [下载 v0.10.4 旧版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.10.4/CodexRemoteWin.exe)
 - [查看全部版本和校验文件](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases)
-- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.1 测试版。
+- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.2 测试版。
 
 ## 功能
 
 - 响应式手机和桌面网页界面
+- 可切换浅色/深色模式，并在浏览器中记住选择
 - 读取并按项目整理本机 Codex 任务
 - 从桌面端读取任务历史、运行状态和工具进度
 - 向指定任务发送文字消息

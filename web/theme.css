@@ -1,0 +1,80 @@
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --topbar: #141719;
+  --input-bg: #121517;
+  --project-glyph: #293027;
+  --thread-hover: #1e2326;
+  --code-inline: #22272b;
+  --code-block: #0c0e0f;
+  --activity-bg: #161a1c;
+  --composer-bg: #181c1f;
+  --menu-bg: #171b1e;
+  --toast-bg: #263036;
+  --toast-line: #667580;
+  --shadow: rgba(0, 0, 0, .45);
+  --scrim: rgba(0, 0, 0, .55);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f7fa;
+  --sidebar: #edf2f7;
+  --surface: #ffffff;
+  --raised: #e5edf5;
+  --line: #cfd8e3;
+  --text: #16202a;
+  --muted: #526171;
+  --faint: #5f7084;
+  --green: #0b5cab;
+  --green-bg: #dcecff;
+  --amber: #9a5a00;
+  --red: #b4232f;
+  --blue: #0969ba;
+  --topbar: #ffffff;
+  --input-bg: #ffffff;
+  --project-glyph: #d9e8f7;
+  --thread-hover: #e5edf5;
+  --code-inline: #e8eef4;
+  --code-block: #f0f4f8;
+  --activity-bg: #e8f3ff;
+  --composer-bg: #ffffff;
+  --menu-bg: #ffffff;
+  --toast-bg: #203040;
+  --toast-line: #526b80;
+  --shadow: rgba(46, 63, 81, .2);
+  --scrim: rgba(34, 48, 61, .32);
+}
+
+html, body, .app { color: var(--text); }
+.topbar { background: var(--topbar); }
+.search, .pairCode { background: var(--input-bg); }
+.projectGlyph { background: var(--project-glyph); }
+.thread:hover { background: var(--thread-hover); }
+.md code { background: var(--code-inline); }
+.codeBlock { background: var(--code-block); }
+.copyCode { background: var(--raised); }
+.activity { background: var(--activity-bg); }
+.composerShell { background: linear-gradient(180deg, transparent, var(--bg) 18%); }
+.composer { background: var(--composer-bg); }
+.menu, .pairBox { background: var(--menu-bg); box-shadow: 0 15px 42px var(--shadow); }
+.overlay { background: var(--scrim); }
+.sidebar { box-shadow: 12px 0 36px var(--shadow); }
+.remoteToast { background: var(--toast-bg); border-color: var(--toast-line); }
+.remoteDialog select, .remoteDialog textarea { background: var(--raised); }
+.queueError { color: var(--red); }
+:root[data-theme="light"] .primary,
+:root[data-theme="light"] .send,
+:root[data-theme="light"] .brandMark { color: #ffffff; }
+.themeButton { flex: 0 0 34px; }
+.themeGlyph { display: block; width: 20px; line-height: 20px; font-family: "Segoe UI Symbol", sans-serif; font-size: 20px; font-weight: 400; text-align: center; }
+
+@media (max-width: 380px) {
+  .headActions .runBadge { display: none; }
+  .threadTitle { max-width: 35vw; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body, .topbar, .sidebar, .composer, .menu, .pairBox, .remoteDialog, .fileCard {
+    transition: background-color .16s ease, color .16s ease, border-color .16s ease;
+  }
+}

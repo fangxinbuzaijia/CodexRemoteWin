@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.11.0-beta.2 - 2026-09-07
+
+- Added a light appearance with a compact theme switch in the top toolbar.
+- The selected appearance is remembered per browser; first use follows the operating-system preference.
+- Updated sidebars, messages, composer, menus, dialogs, file cards, and code blocks for readable light-mode contrast.
+
 ## v0.11.0-beta.1 - 2026-09-07
 
 - Added a native Windows desktop app-tools bridge with automatic pipe discovery.

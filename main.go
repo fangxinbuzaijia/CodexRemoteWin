@@ -38,7 +38,7 @@ import (
 
 const (
 	appName            = "Codex Remote Win"
-	appVersion         = "0.11.0-beta.1"
+	appVersion         = "0.11.0-beta.2"
 	appIconResourceID  = 1
 	defaultHost        = "0.0.0.0"
 	defaultPort        = "8787"
@@ -63,12 +63,17 @@ var appIcon512PNG []byte
 //go:embed web/v11.js
 var webV11 string
 
+//go:embed web/theme.css
+var webTheme string
+
 func projectPage() string {
 	page := indexHTMLProjects
 	if i := strings.LastIndex(page, "boot();"); i >= 0 {
 		page = page[:i] + page[i+len("boot();"):]
 	}
 	page = strings.Replace(page, "v0.10</span>", "v0.11</span>", 1)
+	themeHead := `<script>(function(){var t="dark";try{var s=localStorage.getItem("crw.theme");t=s==="light"||s==="dark"?s:(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark")}catch(e){}document.documentElement.dataset.theme=t;var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==="light"?"#f5f7fa":"#111315"})()</script><link rel="stylesheet" href="/theme.css">`
+	page = strings.Replace(page, "</head>", themeHead+"</head>", 1)
 	return strings.Replace(page, "</body>", `<script src="/v11.js"></script></body>`, 1)
 }
 
@@ -352,6 +357,12 @@ func (s *serverState) handle(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/javascript; charset=utf-8")
 		w.Header().Set("cache-control", "no-store")
 		_, _ = io.WriteString(w, webV11)
+		return
+	}
+	if path == "/theme.css" {
+		w.Header().Set("content-type", "text/css; charset=utf-8")
+		w.Header().Set("cache-control", "no-store")
+		_, _ = io.WriteString(w, webTheme)
 		return
 	}
 	if path == "/icon-192.png" || path == "/icon-512.png" || path == "/icon-blue-192.png" || path == "/icon-blue-512.png" {

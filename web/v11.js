@@ -1,5 +1,21 @@
 'use strict';
 
+const themeKey = 'crw.theme';
+function applyTheme(theme, remember) {
+  const value = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = value;
+  document.documentElement.style.colorScheme = value;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = value === 'light' ? '#f5f7fa' : '#111315';
+  if (remember) { try { localStorage.setItem(themeKey, value); } catch {} }
+  if (typeof themeButton !== 'undefined') {
+    const light = value === 'light';
+    themeButton.title = light ? '切换到深色模式' : '切换到浅色模式';
+    themeButton.setAttribute('aria-label', themeButton.title);
+    themeButton.querySelector('.themeGlyph').textContent = light ? '◐' : '☼';
+  }
+}
+
 const v11 = { generation: 0, historyController: null, polling: false, uploading: 0, projects: [], objectURLs: new Set(), historyKey: '', newBusy: false };
 const style = document.createElement('style');
 style.textContent = `
@@ -7,14 +23,20 @@ style.textContent = `
 .fileCard{display:inline-flex;align-items:center;gap:8px;max-width:100%;border:1px solid var(--line);background:var(--raised);color:var(--text);padding:8px;margin:6px 6px 0 0;border-radius:6px;cursor:pointer;overflow-wrap:anywhere;text-align:left;font:inherit}
 .fileCard img{width:72px;height:72px;object-fit:contain}.fileCard span{min-width:0;overflow-wrap:anywhere}
 .fileChip{flex-shrink:0;min-width:100px;max-width:220px}.fileChip .fileName{white-space:normal;overflow-wrap:anywhere}
-.queueItem{align-items:flex-start;flex-wrap:wrap}.queueError{width:100%;font-size:12px;overflow-wrap:anywhere;color:#f0abab}.queueText{overflow-wrap:anywhere}
-.remoteToast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:110;max-width:min(540px,90vw);background:#263036;color:#fff;padding:12px 16px;border:1px solid #667580;border-radius:6px;overflow-wrap:anywhere;box-shadow:0 4px 16px #0005}
+.queueItem{align-items:flex-start;flex-wrap:wrap}.queueError{width:100%;font-size:12px;overflow-wrap:anywhere;color:var(--red)}.queueText{overflow-wrap:anywhere}
+.remoteToast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:110;max-width:min(540px,90vw);background:var(--toast-bg);color:#fff;padding:12px 16px;border:1px solid var(--toast-line);border-radius:6px;overflow-wrap:anywhere;box-shadow:0 4px 16px var(--shadow)}
 .remoteDialog{background:var(--surface,#191e22);color:var(--text,#eee);border:1px solid var(--line,#465057);border-radius:8px;width:min(480px,calc(100vw - 32px));padding:20px;max-height:85dvh;overflow:auto}.remoteDialog::backdrop{background:#0009}
 .remoteDialog label{display:block;margin:12px 0 6px}.remoteDialog select,.remoteDialog textarea{width:100%;font:inherit;color:inherit;background:var(--raised,#263036);border:1px solid var(--line,#465057);border-radius:4px;padding:10px}.remoteDialog textarea{min-height:100px;resize:vertical}
 .remoteDialog .dialogActions{display:flex;justify-content:flex-end;gap:12px;margin-top:16px}.remoteDialog button{padding:10px 14px;border-radius:5px;color:inherit;background:var(--raised,#263036)}
 .imageDialog{max-width:95vw;width:auto}.imageDialog img{display:block;max-width:85vw;max-height:75dvh;object-fit:contain}.remoteDialog h2{font-size:18px;margin:0}
 `;
 document.head.append(style);
+const themeButton = document.createElement('button');
+themeButton.type = 'button'; themeButton.id = 'themeToggle'; themeButton.className = 'iconBtn themeButton';
+const themeGlyph = document.createElement('span'); themeGlyph.className = 'themeGlyph'; themeGlyph.setAttribute('aria-hidden', 'true'); themeButton.append(themeGlyph);
+$('newThread').parentNode.insertBefore(themeButton, $('newThread'));
+themeButton.onclick = () => applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light', true);
+applyTheme(document.documentElement.dataset.theme, false);
 const newDialog = document.createElement('dialog');
 newDialog.className = 'remoteDialog';
 newDialog.innerHTML = '<form id="newTaskForm"><h2>新建任务</h2><label for="projectChoice">项目</label><select id="projectChoice"></select><label for="environmentChoice">工作目录</label><select id="environmentChoice"><option value="local">使用项目目录</option><option value="worktree">新建工作树</option></select><label for="firstPrompt">第一条消息</label><textarea id="firstPrompt" maxlength="8000" required></textarea><div id="newTaskError" class="queueError" role="alert"></div><div class="dialogActions"><button type="button" id="cancelNew">取消</button><button class="primary" type="submit" id="createNew">创建并发送</button></div></form>';
@@ -43,6 +65,7 @@ function busyComposer() { el.send.disabled = v11.uploading > 0 || !st.selected |
 const oldSyncHeader = syncHeader;
 syncHeader = function () { oldSyncHeader(); busyComposer(); };
 el.context.hidden = true; el.model.hidden = true;
+$('runDot').parentElement.classList.add('runBadge');
 // The current app-tools catalog has no interrupt operation. Do not claim that an
 // unrelated GUI click stopped a task in the new desktop client.
 $('stopAction').disabled = true;

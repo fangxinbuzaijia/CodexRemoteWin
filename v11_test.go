@@ -308,8 +308,11 @@ func TestDesktopMessagesPreserveRoles(t *testing.T) {
 }
 func TestProjectPageBootsV11Once(t *testing.T) {
 	page := projectPage()
-	if strings.Contains(page, "});boot();") || strings.Count(page, `src="/v11.js"`) != 1 {
+	if strings.Contains(page, "});boot();") || strings.Count(page, `src="/v11.js"`) != 1 || strings.Count(page, `href="/theme.css"`) != 1 {
 		t.Fatal("legacy boot still executes")
+	}
+	if strings.Index(page, `localStorage.getItem("crw.theme")`) > strings.Index(page, "<body>") {
+		t.Fatal("theme must be selected before the body is rendered")
 	}
 }
 func TestLiveDesktopReadOnly(t *testing.T) {
