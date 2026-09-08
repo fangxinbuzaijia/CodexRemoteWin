@@ -53,7 +53,9 @@ html, body, .app { color: var(--text); }
 .md code { background: var(--code-inline); }
 .codeBlock { background: var(--code-block); }
 .copyCode { background: var(--raised); }
-.activity { background: var(--activity-bg); }
+.activity { min-height: 18px; margin-bottom: 3px; padding: 0 2px 4px; border: 0; background: transparent; }
+.activityHead { min-height: 18px; gap: 0; color: var(--faint); font-size: 11px; font-weight: 400; }
+.activityHead .dot, .activitySteps { display: none; }
 .composerShell { background: linear-gradient(180deg, transparent, var(--bg) 18%); }
 .composer { background: var(--composer-bg); }
 .menu, .pairBox { background: var(--menu-bg); box-shadow: 0 15px 42px var(--shadow); }

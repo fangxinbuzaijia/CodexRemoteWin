@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.11.0-beta.6 - 2026-09-08
+
+- Removed the large execution-progress panel from the conversation view.
+- The browser API no longer exposes tool calls, file changes, or completion records.
+- Codex commentary remains in the normal message flow, while active work uses a single compact elapsed-time line.
+- Removed all execution-detail controls so the mobile interface is dedicated to conversation.
+
 ## v0.11.0-beta.5 - 2026-09-08
 
 - Localized the Windows tray context menu into Chinese.

@@ -85,11 +85,11 @@ func (s *serverState) handleV11API(w http.ResponseWriter, r *http.Request) bool 
 			writeJSON(w, 502, errJSON("WRONG_THREAD", "桌面返回了不同任务，已停止更新"))
 			break
 		}
-		messages, steps := desktopMessages(data)
+		messages := desktopMessages(data)
 		messages = s.restoreAttachmentMessages(id, messages)
 		status := asString(asMap(thread["status"])["type"])
 		page := asMap(data["page"])
-		writeJSON(w, 200, map[string]any{"ok": true, "threadId": id, "available": true, "active": status == "active" || status == "running", "status": status, "messages": messages, "steps": steps, "hasMore": page["hasMore"], "cursor": page["nextCursor"]})
+		writeJSON(w, 200, map[string]any{"ok": true, "threadId": id, "available": true, "active": status == "active" || status == "running", "status": status, "messages": messages, "hasMore": page["hasMore"], "cursor": page["nextCursor"]})
 	case "/api/thread-action":
 		s.handleDesktopAction(w, r)
 	}
@@ -170,9 +170,8 @@ func usageWindowLabel(minutes int, fallback string) string {
 	return fallback
 }
 
-func desktopMessages(data map[string]any) ([]messageRow, []statusStep) {
+func desktopMessages(data map[string]any) []messageRow {
 	messages := []messageRow{}
-	steps := []statusStep{}
 	turns := asSlice(data["turns"])
 	for i := len(turns) - 1; i >= 0; i-- {
 		turn := asMap(turns[i])
@@ -195,25 +194,14 @@ func desktopMessages(data map[string]any) ([]messageRow, []statusStep) {
 					text := strings.TrimSpace(asString(x["text"]))
 					if text != "" {
 						messages = append(messages, messageRow{Seq: len(messages) + 1, Role: "assistant", Text: text, Timestamp: timestamp})
-						steps = append(steps, statusStep{ID: asString(x["id"]), Kind: "message", Label: "回复中", Detail: text})
 					}
 					continue
 				}
 				messages = append(messages, messageRow{Seq: len(messages) + 1, Role: "assistant", Text: asString(x["text"]), Timestamp: timestamp})
-			case "commandExecution", "fileChange", "mcpToolCall", "dynamicToolCall":
-				label := map[string]string{"commandExecution": "执行命令", "fileChange": "修改文件", "mcpToolCall": "调用工具", "dynamicToolCall": "调用工具"}[typ]
-				kind := "tool"
-				if x["status"] == "failed" {
-					kind = "error"
-				}
-				steps = append(steps, statusStep{ID: asString(x["id"]), Kind: kind, Label: label, Detail: asString(x["status"])})
 			}
 		}
 	}
-	if len(steps) > 10 {
-		steps = steps[len(steps)-10:]
-	}
-	return messages, steps
+	return messages
 }
 
 func (s *serverState) handleDesktopAction(w http.ResponseWriter, r *http.Request) {

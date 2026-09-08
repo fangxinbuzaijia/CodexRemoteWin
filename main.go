@@ -38,7 +38,7 @@ import (
 
 const (
 	appName            = "Codex Remote Win"
-	appVersion         = "0.11.0-beta.5"
+	appVersion         = "0.11.0-beta.6"
 	appIconResourceID  = 1
 	defaultHost        = "0.0.0.0"
 	defaultPort        = "8787"

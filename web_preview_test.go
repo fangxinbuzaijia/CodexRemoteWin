@@ -52,6 +52,7 @@ func (p *previewDesktop) Call(_ context.Context, tool string, args map[string]an
 		if p.live > 0 {
 			status = "active"
 			items = append(items, map[string]any{"type": "agentMessage", "phase": "commentary", "text": "正在生成第一段回复。"})
+			items = append(items, map[string]any{"type": "fileChange", "status": "completed", "id": "private-execution-detail"})
 			if p.live >= 2 {
 				items = append(items, map[string]any{"type": "agentMessage", "phase": "commentary", "text": "继续补充第二段回复。"})
 			}

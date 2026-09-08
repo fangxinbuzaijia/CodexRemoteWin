@@ -16,7 +16,7 @@ function applyTheme(theme, remember) {
   }
 }
 
-const v11 = { generation: 0, historyController: null, polling: false, uploading: 0, projects: [], objectURLs: new Set(), historyKey: '', newBusy: false, usageAt: 0, usageLoading: false, usageTimer: null };
+const v11 = { generation: 0, historyController: null, polling: false, uploading: 0, projects: [], objectURLs: new Set(), historyKey: '', newBusy: false, usageAt: 0, usageLoading: false, usageTimer: null, activeSince: 0, processingTimer: null };
 const style = document.createElement('style');
 style.textContent = `
 [hidden]{display:none!important}
@@ -212,9 +212,26 @@ loadHistory = async function (id, cursor = '', prepend = false, quiet = false) {
 };
 
 selectThread = async function (id) {
-  saveDraft(); st.selected = id; st.attachments = []; renderAttachments();
+  saveDraft(); renderActivity([], false); st.selected = id; st.attachments = []; renderAttachments();
   localStorage.setItem('crw.thread', id); v11.historyKey = ''; renderProjects(); closeSide(); loadDraft();
   try { await loadHistory(id); startPoll(); } catch (e) { toast(e.message); }
+};
+
+function updateProcessingStatus() {
+  if (!v11.activeSince) return;
+  const seconds = Math.max(1, Math.floor((Date.now() - v11.activeSince) / 1000));
+  el.activityTitle.textContent = '已处理 ' + seconds + ' 秒';
+}
+renderActivity = function (_steps, active) {
+  el.steps.textContent = '';
+  el.activity.classList.toggle('show', !!active);
+  if (!active) {
+    v11.activeSince = 0; clearInterval(v11.processingTimer); v11.processingTimer = null;
+    return;
+  }
+  if (!v11.activeSince) v11.activeSince = Date.now();
+  updateProcessingStatus();
+  if (!v11.processingTimer) v11.processingTimer = setInterval(updateProcessingStatus, 1000);
 };
 
 poll = async function () {
@@ -229,7 +246,7 @@ poll = async function () {
     // Do not replace older pages while the reader is inspecting history.
     const nearBottom = el.messages.scrollHeight - el.messages.scrollTop - el.messages.clientHeight < 90;
     if (nearBottom) renderHistoryData(id, d, false, true);
-  } catch (e) { setDot(el.healthDot, 'bad'); el.healthText.textContent = '桌面未连接'; }
+  } catch (e) { renderActivity([], false); setDot(el.healthDot, 'bad'); el.healthText.textContent = '桌面未连接'; }
   finally { v11.polling = false; }
 };
 startPoll = function () { clearInterval(st.timer); poll(); st.timer = setInterval(poll, 2000); };

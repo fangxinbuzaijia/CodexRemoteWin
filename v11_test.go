@@ -334,11 +334,20 @@ func TestDesktopMessagesPreserveRoles(t *testing.T) {
 	data := map[string]any{"turns": []any{map[string]any{"items": []any{
 		map[string]any{"type": "userMessage", "content": []any{map[string]any{"type": "text", "text": "question"}}},
 		map[string]any{"type": "agentMessage", "phase": "commentary", "text": "working"},
+		map[string]any{"type": "fileChange", "status": "completed", "id": "hidden-tool-detail"},
 		map[string]any{"type": "agentMessage", "phase": "final", "text": "answer"},
 	}}}}
-	messages, steps := desktopMessages(data)
-	if len(messages) != 3 || messages[0].Role != "user" || messages[1].Text != "working" || messages[2].Text != "answer" || len(steps) != 1 {
-		t.Fatal(messages, steps)
+	messages := desktopMessages(data)
+	if len(messages) != 3 || messages[0].Role != "user" || messages[1].Text != "working" || messages[2].Text != "answer" {
+		t.Fatal(messages)
+	}
+}
+
+func TestHistoryAPIHidesExecutionDetails(t *testing.T) {
+	s, _ := testServer(t, &fakeDesktop{})
+	result := decodeTest(t, testRequest(s, "GET", "/api/status?thread="+testThreadID, nil))
+	if _, exposed := result["steps"]; exposed {
+		t.Fatal("execution details were exposed by the conversation API")
 	}
 }
 func TestProjectPageBootsV11Once(t *testing.T) {

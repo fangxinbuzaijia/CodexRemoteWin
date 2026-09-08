@@ -10,10 +10,10 @@
 
 ## Windows 客户端
 
-- [下载 v0.11.0-beta.5 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.5/CodexRemoteWin.exe)
+- [下载 v0.11.0-beta.6 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.6/CodexRemoteWin.exe)
 - [下载 v0.10.4 旧版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.10.4/CodexRemoteWin.exe)
 - [查看全部版本和校验文件](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases)
-- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.5 测试版。
+- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.6 测试版。
 
 ## 功能
 
@@ -21,7 +21,8 @@
 - 可切换浅色/深色模式，并在浏览器中记住选择
 - 在网页顶栏显示 Codex 可用额度，展开查看各额度窗口和重置时间
 - 读取并按项目整理本机 Codex 任务
-- 从桌面端读取任务历史、运行状态和工具进度
+- 从桌面端读取任务历史和运行状态
+- 对话区只显示用户与 Codex 的文字消息，隐藏工具调用和文件操作记录
 - 向指定任务发送文字消息
 - 上传图片、文本、Office 文档、PDF、压缩包等附件
 - 在指定项目新建任务，选择项目目录或 Git 工作树，并提交第一条消息
