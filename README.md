@@ -10,10 +10,10 @@
 
 ## Windows 客户端
 
-- [下载 v0.11.0-beta.4 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.4/CodexRemoteWin.exe)
+- [下载 v0.11.0-beta.5 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.5/CodexRemoteWin.exe)
 - [下载 v0.10.4 旧版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.10.4/CodexRemoteWin.exe)
 - [查看全部版本和校验文件](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases)
-- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.4 测试版。
+- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.5 测试版。
 
 ## 功能
 
@@ -33,6 +33,7 @@
 - 六位配对码和浏览器会话令牌
 - 支持 `0.0.0.0` 监听，可由 OpenWrt 上的 FRP 客户端转发
 - Windows 托盘运行，无控制台黑框
+- Windows 托盘右键菜单、配对信息和开机启动提示使用中文
 - 可从托盘菜单设置开机启动
 - 单文件 Windows 可执行程序，无运行时依赖
 

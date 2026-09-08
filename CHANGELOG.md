@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.11.0-beta.5 - 2026-09-08
+
+- Localized the Windows tray context menu into Chinese.
+- Localized the pairing-code dialog, startup-setting results, and initial tray notification.
+
 ## v0.11.0-beta.4 - 2026-09-08
 
 - Added a compact remaining-usage indicator to the top toolbar.

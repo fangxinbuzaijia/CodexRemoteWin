@@ -38,7 +38,7 @@ import (
 
 const (
 	appName            = "Codex Remote Win"
-	appVersion         = "0.11.0-beta.4"
+	appVersion         = "0.11.0-beta.5"
 	appIconResourceID  = 1
 	defaultHost        = "0.0.0.0"
 	defaultPort        = "8787"
@@ -2731,7 +2731,7 @@ func runTray(state *serverState, localURL string) error {
 		return fmt.Errorf("CreateWindowExW failed: %v", err)
 	}
 	trayState = &trayContext{hwnd: hwnd, icon: iconSmall, state: state, localURL: localURL}
-	addTrayIcon(trayState, "Codex Remote Win", "Running. Pairing code: "+state.pairCode)
+	addTrayIcon(trayState, "Codex Remote Win", "程序正在运行。配对码："+state.pairCode)
 	defer removeTrayIcon(trayState)
 	messageLoop()
 	return nil
@@ -2768,20 +2768,20 @@ func trayWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
 			}
 		case menuPair:
 			if trayState != nil {
-				showMessage("Pairing code", "Pairing code: "+trayState.state.pairCode+"\n\nOpen: "+trayState.localURL)
+				showMessage("配对信息", "配对码："+trayState.state.pairCode+"\n\n访问地址："+trayState.localURL)
 			}
 		case menuStartup:
 			if startupEnabled() {
 				if err := setStartup(false); err != nil {
-					showMessage("Startup", "Could not disable startup:\n"+err.Error())
+					showMessage("开机启动", "无法关闭开机启动：\n"+err.Error())
 				} else {
-					showMessage("Startup", "Startup disabled.")
+					showMessage("开机启动", "已关闭开机启动。")
 				}
 			} else {
 				if err := setStartup(true); err != nil {
-					showMessage("Startup", "Could not enable startup:\n"+err.Error())
+					showMessage("开机启动", "无法启用开机启动：\n"+err.Error())
 				} else {
-					showMessage("Startup", "Startup enabled.")
+					showMessage("开机启动", "已启用开机启动。")
 				}
 			}
 		case menuExit:
@@ -2840,16 +2840,16 @@ func showTrayMenu(hwnd uintptr) {
 		return
 	}
 	defer procDestroyMenu.Call(menu)
-	appendMenu(menu, menuOpen, "Open web console")
-	appendMenu(menu, menuPair, "Show pairing code")
+	appendMenu(menu, menuOpen, "打开网页控制台")
+	appendMenu(menu, menuPair, "显示配对码")
 	procAppendMenuW.Call(menu, mfSeparator, 0, 0)
 	if startupEnabled() {
-		appendMenu(menu, menuStartup, "Disable startup")
+		appendMenu(menu, menuStartup, "关闭开机启动")
 	} else {
-		appendMenu(menu, menuStartup, "Enable startup")
+		appendMenu(menu, menuStartup, "启用开机启动")
 	}
 	procAppendMenuW.Call(menu, mfSeparator, 0, 0)
-	appendMenu(menu, menuExit, "Exit")
+	appendMenu(menu, menuExit, "退出程序")
 	var p point
 	procGetCursorPos.Call(uintptr(unsafe.Pointer(&p)))
 	procSetForegroundWindow.Call(hwnd)
