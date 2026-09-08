@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.11.0-beta.3 - 2026-09-08
+
+- Removed successful delivery receipts from the persistent queue; success now appears as a short confirmation only.
+- Kept failed and uncertain deliveries visible for retry or receipt lookup, with a bounded queue height.
+- Added in-progress Codex commentary to the message flow and refreshed active replies every two seconds.
+- Cleans up successful receipt cards left in browser storage by earlier beta versions.
+
 ## v0.11.0-beta.2 - 2026-09-07
 
 - Added a light appearance with a compact theme switch in the top toolbar.

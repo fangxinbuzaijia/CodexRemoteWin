@@ -64,9 +64,6 @@ func (s *serverState) handleV11API(w http.ResponseWriter, r *http.Request) bool 
 			break
 		}
 		args := map[string]any{"threadId": id, "hostId": "local", "turnLimit": 10, "includeOutputs": false, "maxOutputCharsPerItem": 20000}
-		if path == "/api/status" {
-			args["turnLimit"] = 1
-		}
 		if cursor := r.URL.Query().Get("cursor"); cursor != "" {
 			args["cursor"] = cursor
 		}
@@ -113,7 +110,11 @@ func desktopMessages(data map[string]any) ([]messageRow, []statusStep) {
 				messages = append(messages, messageRow{Seq: len(messages) + 1, Role: "user", Text: strings.Join(parts, "\n"), Timestamp: timestamp})
 			case "agentMessage":
 				if x["phase"] == "commentary" {
-					steps = append(steps, statusStep{ID: asString(x["id"]), Kind: "message", Label: "进度", Detail: asString(x["text"])})
+					text := strings.TrimSpace(asString(x["text"]))
+					if text != "" {
+						messages = append(messages, messageRow{Seq: len(messages) + 1, Role: "assistant", Text: text, Timestamp: timestamp})
+						steps = append(steps, statusStep{ID: asString(x["id"]), Kind: "message", Label: "回复中", Detail: text})
+					}
 					continue
 				}
 				messages = append(messages, messageRow{Seq: len(messages) + 1, Role: "assistant", Text: asString(x["text"]), Timestamp: timestamp})

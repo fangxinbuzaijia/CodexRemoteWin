@@ -10,10 +10,10 @@
 
 ## Windows 客户端
 
-- [下载 v0.11.0-beta.2 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.2/CodexRemoteWin.exe)
+- [下载 v0.11.0-beta.3 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.3/CodexRemoteWin.exe)
 - [下载 v0.10.4 旧版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.10.4/CodexRemoteWin.exe)
 - [查看全部版本和校验文件](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases)
-- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.2 测试版。
+- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.3 测试版。
 
 ## 功能
 
@@ -26,6 +26,7 @@
 - 在指定项目新建任务，选择项目目录或 Git 工作树，并提交第一条消息
 - 重命名、置顶、归档和恢复任务后读回桌面端状态
 - 消息编号去重、持久回执、失败手动重试及不确定结果查询
+- 运行中的 Codex 回复定时追加到消息流，成功回执自动收起
 - 逐个上传附件、显示进度，历史附件可预览或下载
 - 按任务保存草稿，切换任务时丢弃过期的历史请求
 - 六位配对码和浏览器会话令牌

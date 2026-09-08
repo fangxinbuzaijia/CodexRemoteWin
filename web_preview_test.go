@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ type previewDesktop struct {
 	mu      sync.Mutex
 	prompts map[string]string
 	sends   int
+	live    int
 }
 
 const previewSecondID = "66666666-2222-4333-8444-555555555555"
@@ -36,10 +38,22 @@ func (p *previewDesktop) Call(_ context.Context, tool string, args map[string]an
 		if question == "" {
 			question = "测试消息"
 		}
-		return map[string]any{"thread": map[string]any{"id": id, "status": map[string]any{"type": "idle"}}, "page": map[string]any{"hasMore": false}, "turns": []any{map[string]any{"items": []any{
-			map[string]any{"type": "userMessage", "content": []any{map[string]any{"type": "text", "text": question}}},
-			map[string]any{"type": "agentMessage", "phase": "final", "text": "这是浏览器自动化测试的模拟回复。\n\n```go\nfmt.Println(\"hello\")\n```"},
-		}}}}, nil
+		status := "idle"
+		items := []any{map[string]any{"type": "userMessage", "content": []any{map[string]any{"type": "text", "text": question}}}}
+		if p.live > 0 {
+			status = "active"
+			items = append(items, map[string]any{"type": "agentMessage", "phase": "commentary", "text": "正在生成第一段回复。"})
+			if p.live >= 2 {
+				items = append(items, map[string]any{"type": "agentMessage", "phase": "commentary", "text": "继续补充第二段回复。"})
+			}
+			if p.live >= 3 {
+				status = "idle"
+				items = append(items, map[string]any{"type": "agentMessage", "phase": "final", "text": "实时回复完成。"})
+			}
+		} else {
+			items = append(items, map[string]any{"type": "agentMessage", "phase": "final", "text": "这是浏览器自动化测试的模拟回复。\n\n```go\nfmt.Println(\"hello\")\n```"})
+		}
+		return map[string]any{"thread": map[string]any{"id": id, "status": map[string]any{"type": status}}, "page": map[string]any{"hasMore": false}, "turns": []any{map[string]any{"items": items}}}, nil
 	case "send_message_to_thread":
 		p.prompts[asString(args["threadId"])] = asString(args["prompt"])
 		p.sends++
@@ -68,6 +82,13 @@ func TestWebPreview(t *testing.T) {
 		preview.mu.Lock()
 		defer preview.mu.Unlock()
 		writeJSON(w, 200, map[string]any{"sends": preview.sends})
+	})
+	mux.HandleFunc("/test/live", func(w http.ResponseWriter, r *http.Request) {
+		stage, _ := strconv.Atoi(r.URL.Query().Get("stage"))
+		preview.mu.Lock()
+		preview.live = stage
+		preview.mu.Unlock()
+		writeJSON(w, 200, map[string]any{"ok": true, "stage": stage})
 	})
 	mux.HandleFunc("/", state.handle)
 	timer := time.AfterFunc(8*time.Minute, func() { server.Close() })

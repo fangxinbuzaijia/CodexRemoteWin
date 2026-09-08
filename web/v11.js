@@ -23,7 +23,7 @@ style.textContent = `
 .fileCard{display:inline-flex;align-items:center;gap:8px;max-width:100%;border:1px solid var(--line);background:var(--raised);color:var(--text);padding:8px;margin:6px 6px 0 0;border-radius:6px;cursor:pointer;overflow-wrap:anywhere;text-align:left;font:inherit}
 .fileCard img{width:72px;height:72px;object-fit:contain}.fileCard span{min-width:0;overflow-wrap:anywhere}
 .fileChip{flex-shrink:0;min-width:100px;max-width:220px}.fileChip .fileName{white-space:normal;overflow-wrap:anywhere}
-.queueItem{align-items:flex-start;flex-wrap:wrap}.queueError{width:100%;font-size:12px;overflow-wrap:anywhere;color:var(--red)}.queueText{overflow-wrap:anywhere}
+.queue.show{max-height:min(132px,28dvh);overflow:auto}.queueItem{align-items:flex-start;flex-wrap:wrap}.queueError{width:100%;font-size:12px;overflow-wrap:anywhere;color:var(--red)}.queueText{overflow-wrap:anywhere}
 .remoteToast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:110;max-width:min(540px,90vw);background:var(--toast-bg);color:#fff;padding:12px 16px;border:1px solid var(--toast-line);border-radius:6px;overflow-wrap:anywhere;box-shadow:0 4px 16px var(--shadow)}
 .remoteDialog{background:var(--surface,#191e22);color:var(--text,#eee);border:1px solid var(--line,#465057);border-radius:8px;width:min(480px,calc(100vw - 32px));padding:20px;max-height:85dvh;overflow:auto}.remoteDialog::backdrop{background:#0009}
 .remoteDialog label{display:block;margin:12px 0 6px}.remoteDialog select,.remoteDialog textarea{width:100%;font:inherit;color:inherit;background:var(--raised,#263036);border:1px solid var(--line,#465057);border-radius:4px;padding:10px}.remoteDialog textarea{min-height:100px;resize:vertical}
@@ -43,14 +43,15 @@ newDialog.innerHTML = '<form id="newTaskForm"><h2>新建任务</h2><label for="p
 document.body.append(newDialog);
 const toastNode = document.createElement('div'); toastNode.className = 'remoteToast'; toastNode.hidden = true; toastNode.setAttribute('role', 'status'); document.body.append(toastNode);
 let toastTimer;
-function toast(message) { toastNode.textContent = message; toastNode.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => toastNode.hidden = true, 7000); }
+function toast(message, duration = 7000) { toastNode.textContent = message; toastNode.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => toastNode.hidden = true, duration); }
 function storageRead(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
 function persistQueue() {
   try { localStorage.setItem('crw.queue.v11', JSON.stringify(st.queue)); }
   catch { toast('浏览器存储已满，消息回执仍保存在电脑上'); }
 }
-st.queue = storageRead('crw.queue.v11', []);
+st.queue = storageRead('crw.queue.v11', []).filter(x => x.status !== 'accepted' && x.status !== 'sent');
 st.queue.forEach(x => { if (x.status === 'sending') x.status = 'unknown'; });
+persistQueue();
 async function jsonAPI(path, options = {}) {
   const r = await api(path, options);
   const d = await r.json().catch(() => ({}));
@@ -118,14 +119,8 @@ async function openAttachment(item) {
   }
 }
 
-loadHistory = async function (id, cursor = '', prepend = false, quiet = false) {
-  const generation = ++v11.generation;
-  v11.historyController?.abort(); v11.historyController = new AbortController();
-  if (!prepend && !quiet) emptyChat('加载中...');
-  let d;
-  try { d = await jsonAPI('/api/history?thread=' + encodeURIComponent(id) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : ''), { signal: v11.historyController.signal }); }
-  catch (e) { if (e.name === 'AbortError') return; throw e; }
-  if (generation !== v11.generation || id !== st.selected) return;
+function renderHistoryData(id, d, prepend = false, quiet = false) {
+  if (id !== st.selected) return;
   const messages = d.messages || [];
   const key = JSON.stringify(messages);
   if (quiet && key === v11.historyKey) return;
@@ -143,6 +138,16 @@ loadHistory = async function (id, cursor = '', prepend = false, quiet = false) {
     el.messages.prepend(more);
   }
   el.messages.scrollTop = prepend ? oldTop + el.messages.scrollHeight - oldHeight : (quiet && !atBottom ? oldTop : el.messages.scrollHeight);
+}
+loadHistory = async function (id, cursor = '', prepend = false, quiet = false) {
+  const generation = ++v11.generation;
+  v11.historyController?.abort(); v11.historyController = new AbortController();
+  if (!prepend && !quiet) emptyChat('加载中...');
+  let d;
+  try { d = await jsonAPI('/api/history?thread=' + encodeURIComponent(id) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : ''), { signal: v11.historyController.signal }); }
+  catch (e) { if (e.name === 'AbortError') return; throw e; }
+  if (generation !== v11.generation || id !== st.selected) return;
+  renderHistoryData(id, d, prepend, quiet);
 };
 
 selectThread = async function (id) {
@@ -162,11 +167,11 @@ poll = async function () {
     setDot(el.healthDot, 'ok'); el.healthText.textContent = '已连接桌面';
     // Do not replace older pages while the reader is inspecting history.
     const nearBottom = el.messages.scrollHeight - el.messages.scrollTop - el.messages.clientHeight < 90;
-    if (nearBottom) await loadHistory(id, '', false, true);
+    if (nearBottom) renderHistoryData(id, d, false, true);
   } catch (e) { setDot(el.healthDot, 'bad'); el.healthText.textContent = '桌面未连接'; }
   finally { v11.polling = false; }
 };
-startPoll = function () { clearInterval(st.timer); poll(); st.timer = setInterval(poll, 4000); };
+startPoll = function () { clearInterval(st.timer); poll(); st.timer = setInterval(poll, 2000); };
 health = async function () { try { await jsonAPI('/api/health'); } catch {} };
 
 renderQueue = function () {
@@ -193,6 +198,10 @@ renderQueue = function () {
 function applyReceipt(item, receipt) {
   item.status = receipt.state || 'unknown'; item.error = receipt.error || '';
   item.resultThreadId = receipt.threadId; item.clientThreadId = receipt.clientThreadId;
+  if (item.status === 'accepted') {
+    st.queue = st.queue.filter(x => x !== item);
+    toast('消息已发送', 1800);
+  }
   persistQueue(); renderQueue();
 }
 async function checkReceipt(item) {

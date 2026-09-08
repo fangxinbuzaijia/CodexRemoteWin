@@ -302,7 +302,7 @@ func TestDesktopMessagesPreserveRoles(t *testing.T) {
 		map[string]any{"type": "agentMessage", "phase": "final", "text": "answer"},
 	}}}}
 	messages, steps := desktopMessages(data)
-	if len(messages) != 2 || messages[0].Role != "user" || messages[1].Text != "answer" || len(steps) != 1 {
+	if len(messages) != 3 || messages[0].Role != "user" || messages[1].Text != "working" || messages[2].Text != "answer" || len(steps) != 1 {
 		t.Fatal(messages, steps)
 	}
 }
