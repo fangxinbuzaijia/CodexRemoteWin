@@ -29,6 +29,17 @@ type fakeDesktop struct {
 
 func (f *fakeDesktop) Call(_ context.Context, tool string, args map[string]any, _ string) (map[string]any, error) {
 	switch tool {
+	case "get_usage_limits":
+		return map[string]any{
+			"accountId": "must-not-leak",
+			"rateLimitsByLimitId": map[string]any{"codex": map[string]any{
+				"planType":  "plus",
+				"primary":   map[string]any{"usedPercent": 58, "windowDurationMins": 300, "resetsAt": 1788878855},
+				"secondary": map[string]any{"usedPercent": 13, "windowDurationMins": 10080, "resetsAt": 1789447374},
+				"credits":   map[string]any{"hasCredits": false, "unlimited": false, "balance": "0"},
+			}},
+			"rateLimitResetCredits": map[string]any{"availableCount": 1, "credits": []any{map[string]any{"id": "secret-reset-id"}}},
+		}, nil
 	case "read_thread":
 		return map[string]any{"thread": map[string]any{"id": args["threadId"], "title": "renamed"}}, nil
 	case "list_projects":
@@ -50,6 +61,30 @@ func (f *fakeDesktop) Call(_ context.Context, tool string, args map[string]any, 
 		return map[string]any{"ok": true}, nil
 	}
 	return map[string]any{"threads": []any{}, "pinnedThreads": []any{}}, nil
+}
+
+func TestUsageEndpointReturnsOnlyDisplayData(t *testing.T) {
+	s, _ := testServer(t, &fakeDesktop{})
+	response := testRequest(s, "GET", "/api/usage", nil)
+	if response.Code != http.StatusOK {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	result := decodeTest(t, response)
+	windows := asSlice(result["windows"])
+	if result["available"] != true || len(windows) != 2 || asString(result["planType"]) != "plus" {
+		t.Fatal(result)
+	}
+	primary, secondary := asMap(windows[0]), asMap(windows[1])
+	if intFromAny(primary["remainingPercent"]) != 42 || asString(primary["label"]) != "5 小时" || asString(primary["resetsAt"]) == "" {
+		t.Fatal(primary)
+	}
+	if intFromAny(secondary["remainingPercent"]) != 87 || asString(secondary["label"]) != "7 天" {
+		t.Fatal(secondary)
+	}
+	serialized := response.Body.String()
+	if strings.Contains(serialized, "must-not-leak") || strings.Contains(serialized, "secret-reset-id") || strings.Contains(serialized, "accountId") {
+		t.Fatal("private desktop usage fields leaked to browser")
+	}
 }
 
 func testServer(t *testing.T, desktop desktopCaller) (*serverState, session) {
@@ -335,5 +370,13 @@ func TestLiveDesktopReadOnly(t *testing.T) {
 	if len(rows) == 0 || len(projects) == 0 {
 		t.Fatal("desktop snapshot empty")
 	}
-	t.Logf("Verified %d desktop tasks and %d projects", len(rows), len(projects))
+	usage, err := s.desktopCall(ctx, "get_usage_limits", map[string]any{}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	normalized := normalizeUsage(usage)
+	if normalized["available"] != true || len(asSlice(normalized["windows"])) == 0 {
+		t.Fatal("desktop usage limits unavailable")
+	}
+	t.Logf("Verified %d desktop tasks, %d projects, and %d usage windows", len(rows), len(projects), len(asSlice(normalized["windows"])))
 }

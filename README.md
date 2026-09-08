@@ -10,15 +10,16 @@
 
 ## Windows 客户端
 
-- [下载 v0.11.0-beta.3 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.3/CodexRemoteWin.exe)
+- [下载 v0.11.0-beta.4 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.4/CodexRemoteWin.exe)
 - [下载 v0.10.4 旧版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.10.4/CodexRemoteWin.exe)
 - [查看全部版本和校验文件](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases)
-- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.3 测试版。
+- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.4 测试版。
 
 ## 功能
 
 - 响应式手机和桌面网页界面
 - 可切换浅色/深色模式，并在浏览器中记住选择
+- 在网页顶栏显示 Codex 可用额度，展开查看各额度窗口和重置时间
 - 读取并按项目整理本机 Codex 任务
 - 从桌面端读取任务历史、运行状态和工具进度
 - 向指定任务发送文字消息
@@ -50,7 +51,7 @@
 - 一条消息最多 6 个附件，每个最多 12 MB。附件逐个传输，不再放进一个 Base64 消息请求中。
 - 附件和回执保存在 `data/attachments`、`data/deliveries`，升级时保留整个 `data` 目录。该版本不会自动清理新附件。
 - 看到“结果待确认”时先查询回执或检查桌面任务，不要另发一条相同消息。程序重启后也不会自动重放未确认消息。
-- 当前连接方式暂不提供停止任务、模型切换、上下文用量、SSH 任务或逐字推送。回复与进度定时更新，停止操作请在桌面完成。
+- 当前连接方式暂不提供停止任务、模型切换、单个任务的上下文用量、SSH 任务或逐字推送。账户额度可以在顶栏查看；回复与进度定时更新，停止操作请在桌面完成。
 - 桌面内部接口可能随版本变化；连接不可用时网页会明确报错，不会用历史日志冒充当前任务列表。
 
 ## 快速使用

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.11.0-beta.4 - 2026-09-08
+
+- Added a compact remaining-usage indicator to the top toolbar.
+- Added a detail panel for the five-hour and weekly windows, reset times, plan name, and available full-reset count.
+- Usage data comes from the signed-in Codex desktop account and refreshes at most once per minute.
+- Added warning colors below 20% and 5%, plus a compact mobile layout.
+- Sanitized the usage response so account identifiers and internal reset-credit records never reach the browser.
+
 ## v0.11.0-beta.3 - 2026-09-08
 
 - Removed successful delivery receipts from the persistent queue; success now appears as a short confirmation only.

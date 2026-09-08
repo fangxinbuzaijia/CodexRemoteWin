@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -10,7 +11,7 @@ import (
 func (s *serverState) handleV11API(w http.ResponseWriter, r *http.Request) bool {
 	path := r.URL.Path
 	methods := map[string]string{
-		"/api/threads": "GET", "/api/history": "GET", "/api/status": "GET", "/api/thread-action": "POST",
+		"/api/threads": "GET", "/api/history": "GET", "/api/status": "GET", "/api/usage": "GET", "/api/thread-action": "POST",
 		"/api/upload": "POST", "/api/attachment": "GET", "/api/deliver": "POST", "/api/new-thread": "POST",
 		"/api/receipt": "GET", "/api/send": "POST", "/api/stop": "POST",
 	}
@@ -28,6 +29,13 @@ func (s *serverState) handleV11API(w http.ResponseWriter, r *http.Request) bool 
 		return true
 	}
 	switch path {
+	case "/api/usage":
+		data, err := s.desktopCall(r.Context(), "get_usage_limits", map[string]any{}, "")
+		if err != nil {
+			writeJSON(w, 503, errJSON("USAGE_UNAVAILABLE", "暂时无法读取 Codex 额度"))
+			break
+		}
+		writeJSON(w, 200, normalizeUsage(data))
 	case "/api/stop":
 		writeJSON(w, 501, errJSON("STOP_UNAVAILABLE", "当前桌面接口不提供停止操作，请在桌面停止任务"))
 	case "/api/send":
@@ -86,6 +94,80 @@ func (s *serverState) handleV11API(w http.ResponseWriter, r *http.Request) bool 
 		s.handleDesktopAction(w, r)
 	}
 	return true
+}
+
+func normalizeUsage(data map[string]any) map[string]any {
+	limits := asMap(asMap(data["rateLimitsByLimitId"])["codex"])
+	if len(limits) == 0 {
+		limits = asMap(data["rateLimits"])
+	}
+	windows := []any{}
+	for _, item := range []struct {
+		key      string
+		fallback string
+	}{{"primary", "主要窗口"}, {"secondary", "次要窗口"}} {
+		window := asMap(limits[item.key])
+		if len(window) == 0 {
+			continue
+		}
+		duration := intFromAny(window["windowDurationMins"])
+		used := clampPercent(intFromAny(window["usedPercent"]))
+		row := map[string]any{
+			"id": item.key, "label": usageWindowLabel(duration, item.fallback),
+			"usedPercent": used, "remainingPercent": 100 - used,
+			"windowDurationMins": duration,
+		}
+		if reset := intFromAny(window["resetsAt"]); reset > 0 {
+			row["resetsAt"] = time.Unix(int64(reset), 0).Format(time.RFC3339)
+		}
+		windows = append(windows, row)
+	}
+
+	result := map[string]any{
+		"ok": true, "available": len(windows) > 0, "windows": windows,
+		"planType": asString(limits["planType"]),
+	}
+	credits := asMap(limits["credits"])
+	if len(credits) > 0 {
+		result["credits"] = map[string]any{
+			"hasCredits": credits["hasCredits"] == true,
+			"unlimited":  credits["unlimited"] == true,
+			"balance":    asString(credits["balance"]),
+		}
+	}
+	if available := intFromAny(asMap(data["rateLimitResetCredits"])["availableCount"]); available > 0 {
+		result["resetCreditsAvailable"] = available
+	}
+	return result
+}
+
+func clampPercent(value int) int {
+	if value < 0 {
+		return 0
+	}
+	if value > 100 {
+		return 100
+	}
+	return value
+}
+
+func usageWindowLabel(minutes int, fallback string) string {
+	switch minutes {
+	case 300:
+		return "5 小时"
+	case 10080:
+		return "7 天"
+	}
+	if minutes > 0 && minutes%(24*60) == 0 {
+		return fmt.Sprintf("%d 天", minutes/(24*60))
+	}
+	if minutes > 0 && minutes%60 == 0 {
+		return fmt.Sprintf("%d 小时", minutes/60)
+	}
+	if minutes > 0 {
+		return fmt.Sprintf("%d 分钟", minutes)
+	}
+	return fallback
 }
 
 func desktopMessages(data map[string]any) ([]messageRow, []statusStep) {

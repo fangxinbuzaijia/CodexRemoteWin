@@ -23,6 +23,15 @@ func (p *previewDesktop) Call(_ context.Context, tool string, args map[string]an
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	switch tool {
+	case "get_usage_limits":
+		return map[string]any{
+			"rateLimits": map[string]any{
+				"planType":  "plus",
+				"primary":   map[string]any{"usedPercent": 58, "windowDurationMins": 300, "resetsAt": time.Now().Add(2 * time.Hour).Unix()},
+				"secondary": map[string]any{"usedPercent": 13, "windowDurationMins": 10080, "resetsAt": time.Now().Add(4 * 24 * time.Hour).Unix()},
+			},
+			"rateLimitResetCredits": map[string]any{"availableCount": 1},
+		}, nil
 	case "list_threads":
 		return map[string]any{"threads": []any{
 			map[string]any{"id": testThreadID, "kind": "codex", "hostId": "local", "title": "附件和项目任务测试", "projectId": "preview-project", "cwd": "C:\\Preview", "status": "idle"},

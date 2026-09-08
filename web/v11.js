@@ -16,7 +16,7 @@ function applyTheme(theme, remember) {
   }
 }
 
-const v11 = { generation: 0, historyController: null, polling: false, uploading: 0, projects: [], objectURLs: new Set(), historyKey: '', newBusy: false };
+const v11 = { generation: 0, historyController: null, polling: false, uploading: 0, projects: [], objectURLs: new Set(), historyKey: '', newBusy: false, usageAt: 0, usageLoading: false, usageTimer: null };
 const style = document.createElement('style');
 style.textContent = `
 [hidden]{display:none!important}
@@ -35,6 +35,19 @@ const themeButton = document.createElement('button');
 themeButton.type = 'button'; themeButton.id = 'themeToggle'; themeButton.className = 'iconBtn themeButton';
 const themeGlyph = document.createElement('span'); themeGlyph.className = 'themeGlyph'; themeGlyph.setAttribute('aria-hidden', 'true'); themeButton.append(themeGlyph);
 $('newThread').parentNode.insertBefore(themeButton, $('newThread'));
+const usageButton = document.createElement('button');
+usageButton.type = 'button'; usageButton.id = 'usageToggle'; usageButton.className = 'badge usageBadge'; usageButton.setAttribute('aria-expanded', 'false'); usageButton.setAttribute('aria-controls', 'usagePanel');
+const usageLabel = document.createElement('span'); usageLabel.className = 'usageLabel'; usageLabel.textContent = '额度';
+const usageValue = document.createElement('span'); usageValue.className = 'usageValue'; usageValue.textContent = '--%';
+usageButton.append(usageLabel, usageValue); themeButton.parentNode.insertBefore(usageButton, themeButton);
+const usagePanel = document.createElement('section'); usagePanel.id = 'usagePanel'; usagePanel.className = 'usagePanel'; usagePanel.hidden = true; usagePanel.setAttribute('aria-label', 'Codex 可用额度');
+const usageHead = document.createElement('div'); usageHead.className = 'usageHead';
+const usageTitle = document.createElement('strong'); usageTitle.textContent = 'Codex 可用额度';
+const usagePlan = document.createElement('span'); usagePlan.className = 'usagePlan';
+usageHead.append(usageTitle, usagePlan);
+const usageWindows = document.createElement('div'); usageWindows.className = 'usageWindows';
+const usageFoot = document.createElement('div'); usageFoot.className = 'usageFoot'; usageFoot.hidden = true;
+usagePanel.append(usageHead, usageWindows, usageFoot); document.body.append(usagePanel);
 themeButton.onclick = () => applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light', true);
 applyTheme(document.documentElement.dataset.theme, false);
 const newDialog = document.createElement('dialog');
@@ -59,6 +72,54 @@ async function jsonAPI(path, options = {}) {
   if (!r.ok) throw new Error(d.message || `请求失败 (${r.status})`);
   return d;
 }
+function usageResetText(value) {
+  const date = new Date(value || '');
+  return Number.isFinite(date.getTime()) ? '重置于 ' + date.toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '重置时间暂不可用';
+}
+function setUsageUnavailable() {
+  usageValue.textContent = '--%'; usageButton.classList.remove('warn', 'danger'); usageButton.title = '额度暂不可用';
+  usagePlan.textContent = ''; usageWindows.textContent = '';
+  const empty = document.createElement('div'); empty.className = 'usageEmpty'; empty.textContent = '暂时无法读取额度'; usageWindows.append(empty); usageFoot.hidden = true;
+}
+function renderUsage(data) {
+  const windows = Array.isArray(data.windows) ? data.windows : [];
+  if (!data.available || !windows.length) return setUsageUnavailable();
+  const remaining = Math.min(...windows.map(x => Math.max(0, Math.min(100, Number(x.remainingPercent) || 0))));
+  usageValue.textContent = data.credits?.unlimited ? '不限' : Math.round(remaining) + '%';
+  usageButton.classList.toggle('warn', remaining <= 20 && remaining > 5); usageButton.classList.toggle('danger', remaining <= 5);
+  usageButton.title = 'Codex 可用额度，剩余 ' + usageValue.textContent;
+  const planNames = { plus: 'Plus', pro: 'Pro', team: 'Team', business: 'Business', enterprise: 'Enterprise' };
+  usagePlan.textContent = planNames[String(data.planType || '').toLowerCase()] || String(data.planType || '');
+  usageWindows.textContent = '';
+  for (const item of windows) {
+    const itemRemaining = Math.max(0, Math.min(100, Number(item.remainingPercent) || 0));
+    const row = document.createElement('div'); row.className = 'usageWindow' + (itemRemaining <= 5 ? ' danger' : itemRemaining <= 20 ? ' warn' : '');
+    const line = document.createElement('div'); line.className = 'usageLine';
+    const name = document.createElement('span'); name.textContent = item.label || '额度窗口';
+    const amount = document.createElement('strong'); amount.textContent = '剩余 ' + Math.round(itemRemaining) + '%';
+    line.append(name, amount);
+    const track = document.createElement('div'); track.className = 'usageTrack'; track.setAttribute('role', 'progressbar'); track.setAttribute('aria-label', name.textContent); track.setAttribute('aria-valuemin', '0'); track.setAttribute('aria-valuemax', '100'); track.setAttribute('aria-valuenow', String(Math.round(Number(item.remainingPercent) || 0)));
+    const fill = document.createElement('span'); fill.style.width = itemRemaining + '%'; track.append(fill);
+    const reset = document.createElement('div'); reset.className = 'usageReset'; reset.textContent = usageResetText(item.resetsAt);
+    row.append(line, track, reset); usageWindows.append(row);
+  }
+  const details = [];
+  if (Number(data.resetCreditsAvailable) > 0) details.push('可用完整重置 ' + Number(data.resetCreditsAvailable) + ' 次');
+  if (data.credits?.hasCredits && data.credits.balance) details.push('余额 ' + data.credits.balance);
+  usageFoot.textContent = details.join(' · '); usageFoot.hidden = !details.length;
+}
+async function loadUsage(force = false) {
+  if (!st.token || v11.usageLoading || (!force && Date.now() - v11.usageAt < 60000)) return;
+  v11.usageLoading = true;
+  try { const data = await jsonAPI('/api/usage'); renderUsage(data); v11.usageAt = Date.now(); }
+  catch { setUsageUnavailable(); }
+  finally { v11.usageLoading = false; }
+}
+function closeUsage() { usagePanel.hidden = true; usageButton.setAttribute('aria-expanded', 'false'); }
+usageButton.onclick = event => {
+  event.stopPropagation(); const opening = usagePanel.hidden; usagePanel.hidden = !opening; usageButton.setAttribute('aria-expanded', String(opening));
+  if (opening) loadUsage(true);
+};
 function saveDraft() { try { localStorage.setItem('crw.draft.' + st.selected, el.input.value); } catch {} }
 function loadDraft() { el.input.value = localStorage.getItem('crw.draft.' + st.selected) || ''; autosize(); }
 function busyComposer() { el.send.disabled = v11.uploading > 0 || !st.selected || !!selected()?.archived; }
@@ -315,10 +376,13 @@ threadActionFor = async function (x, action, name) {
 };
 el.input.oninput = () => { autosize(); saveDraft(); };
 window.addEventListener('unhandledrejection', event => { if (event.reason?.name !== 'AbortError') toast(event.reason?.message || '操作失败'); event.preventDefault(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && st.token) { loadThreads(true).catch(e => toast(e.message)); poll(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && st.token) { loadThreads(true).catch(e => toast(e.message)); poll(); loadUsage(); } });
+document.addEventListener('click', event => { if (!usagePanel.contains(event.target) && event.target !== usageButton) closeUsage(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeUsage(); });
 boot = async function () {
   if (!st.token) return showPair(true);
   showPair(false); renderQueue();
+  loadUsage(true); clearInterval(v11.usageTimer); v11.usageTimer = setInterval(loadUsage, 60000);
   try { await loadThreads(false); startPoll(); }
   catch (e) { emptyChat(e.message); el.healthText.textContent = '桌面未连接'; setDot(el.healthDot, 'bad'); }
 };

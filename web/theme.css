@@ -67,14 +67,42 @@ html, body, .app { color: var(--text); }
 :root[data-theme="light"] .brandMark { color: #ffffff; }
 .themeButton { flex: 0 0 34px; }
 .themeGlyph { display: block; width: 20px; line-height: 20px; font-family: "Segoe UI Symbol", sans-serif; font-size: 20px; font-weight: 400; text-align: center; }
+.usageBadge { flex: 0 0 auto; background: var(--surface); cursor: pointer; font-variant-numeric: tabular-nums; }
+.usageBadge:hover, .usageBadge[aria-expanded="true"] { background: var(--raised); color: var(--text); }
+.usageBadge.warn { color: var(--amber); border-color: var(--amber); }
+.usageBadge.danger { color: var(--red); border-color: var(--red); }
+.usageValue { font-weight: 750; }
+.usagePanel { position: fixed; z-index: 65; top: 50px; right: 12px; width: min(310px, calc(100vw - 24px)); padding: 14px 15px 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--menu-bg); color: var(--text); box-shadow: 0 15px 42px var(--shadow); }
+.usageHead, .usageLine { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.usageHead { min-height: 26px; padding-bottom: 8px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.usagePlan { color: var(--muted); font-size: 11px; text-transform: capitalize; }
+.usageWindows { display: grid; }
+.usageWindow { padding: 11px 0 10px; border-bottom: 1px solid var(--line); }
+.usageWindow:last-child { border-bottom: 0; }
+.usageLine { color: var(--muted); font-size: 12px; }
+.usageLine strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.usageTrack { height: 5px; margin-top: 8px; overflow: hidden; border-radius: 3px; background: var(--raised); }
+.usageTrack span { display: block; height: 100%; border-radius: inherit; background: var(--green); }
+.usageWindow.warn .usageLine strong { color: var(--amber); }
+.usageWindow.warn .usageTrack span { background: var(--amber); }
+.usageWindow.danger .usageLine strong { color: var(--red); }
+.usageWindow.danger .usageTrack span { background: var(--red); }
+.usageReset, .usageFoot, .usageEmpty { margin-top: 7px; color: var(--faint); font-size: 11px; line-height: 1.4; }
+.usageFoot { padding-top: 9px; border-top: 1px solid var(--line); }
+.usageEmpty { padding: 12px 0 5px; }
+
+@media (max-width: 480px) {
+  .headActions .runBadge { display: none; }
+  .usageLabel { display: none; }
+  .usageBadge { min-width: 44px; justify-content: center; padding: 0 6px; }
+}
 
 @media (max-width: 380px) {
-  .headActions .runBadge { display: none; }
   .threadTitle { max-width: 35vw; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  body, .topbar, .sidebar, .composer, .menu, .pairBox, .remoteDialog, .fileCard {
+  body, .topbar, .sidebar, .composer, .menu, .pairBox, .remoteDialog, .fileCard, .usagePanel {
     transition: background-color .16s ease, color .16s ease, border-color .16s ease;
   }
 }
