@@ -23,6 +23,7 @@ type uploadRecord struct {
 
 type deliveryRecord struct {
 	ID             string         `json:"requestId"`
+	Owner          string         `json:"owner,omitempty"`
 	Fingerprint    string         `json:"fingerprint"`
 	ThreadID       string         `json:"threadId"`
 	ClientThreadID string         `json:"clientThreadId,omitempty"`
@@ -326,7 +327,7 @@ func (s *serverState) handleDelivery(w http.ResponseWriter, r *http.Request, ses
 			offset = fileSize(file)
 		}
 	}
-	record := deliveryRecord{ID: input.RequestID, Fingerprint: fingerprint, ThreadID: input.ThreadID, Text: input.Text, Prompt: prompt, State: "unknown", Error: "等待桌面回执，请勿重复发送", Attachments: attachments, UpdatedAt: time.Now().Format(time.RFC3339), LogOffset: offset}
+	record := deliveryRecord{ID: input.RequestID, Owner: sess.TokenHash, Fingerprint: fingerprint, ThreadID: input.ThreadID, Text: input.Text, Prompt: prompt, State: "unknown", Error: "等待桌面回执，请勿重复发送", Attachments: attachments, UpdatedAt: time.Now().Format(time.RFC3339), LogOffset: offset}
 	path := s.deliveryPath(sess, input.RequestID)
 	if err = atomicJSON(path, record); err != nil {
 		writeJSON(w, 500, errJSON("RECEIPT_FAILED", "无法保存发送记录"))
@@ -360,19 +361,11 @@ func (s *serverState) handleDelivery(w http.ResponseWriter, r *http.Request, ses
 	writeJSON(w, 200, map[string]any{"ok": record.State == "accepted", "receipt": record, "message": record.Error})
 }
 
-func (s *serverState) restoreAttachmentMessages(threadID string, messages []messageRow) []messageRow {
-	entries, _ := os.ReadDir(filepath.Join(s.dataDir, "deliveries"))
+func (s *serverState) restoreAttachmentMessages(threadID, owner string, messages []messageRow) []messageRow {
+	records := s.deliveryRecords(threadID, owner)
 	byPrompt := map[string]deliveryRecord{}
-	for _, entry := range entries {
-		if !strings.HasSuffix(entry.Name(), ".json") {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(s.dataDir, "deliveries", entry.Name()))
-		if err != nil {
-			continue
-		}
-		var record deliveryRecord
-		if json.Unmarshal(data, &record) == nil && record.ThreadID == threadID && len(record.Attachments) > 0 {
+	for _, record := range records {
+		if len(record.Attachments) > 0 {
 			byPrompt[strings.TrimSpace(record.Prompt)] = record
 		}
 	}
@@ -386,6 +379,25 @@ func (s *serverState) restoreAttachmentMessages(threadID string, messages []mess
 		}
 	}
 	return messages
+}
+
+func (s *serverState) deliveryRecords(threadID, owner string) []deliveryRecord {
+	entries, _ := os.ReadDir(filepath.Join(s.dataDir, "deliveries"))
+	records := []deliveryRecord{}
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(s.dataDir, "deliveries", entry.Name()))
+		if err != nil {
+			continue
+		}
+		var record deliveryRecord
+		if json.Unmarshal(data, &record) == nil && record.ThreadID == threadID && (record.Owner == "" || record.Owner == owner) {
+			records = append(records, record)
+		}
+	}
+	return records
 }
 
 func (s *serverState) reconcileDelivery(sess session, record deliveryRecord) deliveryRecord {

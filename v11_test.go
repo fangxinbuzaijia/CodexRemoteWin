@@ -224,7 +224,7 @@ func TestAttachmentOnlyHistoryRestoresCards(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	history := s.restoreAttachmentMessages(testThreadID, []messageRow{{Role: "user", Text: strings.TrimSpace(record.Prompt)}})
+	history := s.restoreAttachmentMessages(testThreadID, sess.TokenHash, []messageRow{{Role: "user", Text: strings.TrimSpace(record.Prompt)}})
 	if history[0].Text != "" || len(history[0].Attachments) != 1 {
 		t.Fatal("attachment-only card was not restored")
 	}
@@ -277,7 +277,7 @@ func TestAttachmentLifecycleAndAuthenticatedDownload(t *testing.T) {
 	if !strings.Contains(record.Prompt, "notes.txt") {
 		t.Fatal("missing local reference")
 	}
-	history := s.restoreAttachmentMessages(testThreadID, []messageRow{{Role: "user", Text: record.Prompt}})
+	history := s.restoreAttachmentMessages(testThreadID, sess.TokenHash, []messageRow{{Role: "user", Text: record.Prompt}})
 	if history[0].Text != input.Text || len(history[0].Attachments) != 1 {
 		t.Fatal(history)
 	}
@@ -339,6 +339,50 @@ func TestDesktopMessagesPreserveRoles(t *testing.T) {
 	}}}}
 	messages := desktopMessages(data)
 	if len(messages) != 3 || messages[0].Role != "user" || messages[1].Text != "working" || messages[2].Text != "answer" {
+		t.Fatal(messages)
+	}
+}
+
+func TestRemoteDeliveryAppearsInDesktopHistory(t *testing.T) {
+	s, sess := testServer(t, &fakeDesktop{})
+	started := time.Now().Truncate(time.Second)
+	record := deliveryRecord{
+		ID: "remote-history", Owner: sess.TokenHash, ThreadID: testThreadID,
+		Text: "手机发来的消息", Prompt: "手机发来的消息", State: "accepted",
+		UpdatedAt: started.Format(time.RFC3339),
+	}
+	if err := atomicJSON(s.deliveryPath(sess, record.ID), record); err != nil {
+		t.Fatal(err)
+	}
+	data := map[string]any{"turns": []any{map[string]any{
+		"startedAt": int(started.Unix()),
+		"items": []any{
+			map[string]any{"type": "functionCallOutput", "name": "send_message_to_thread"},
+			map[string]any{"type": "agentMessage", "phase": "final", "text": "已经收到"},
+		},
+	}}}
+	messages := s.restoreRemoteDeliveryMessages(testThreadID, sess.TokenHash, data, desktopMessages(data))
+	if len(messages) != 2 || messages[0].Role != "user" || messages[0].Text != record.Text || messages[1].Role != "assistant" {
+		t.Fatal(messages)
+	}
+}
+
+func TestRemoteDeliveryAppearsWhileTurnIsInProgress(t *testing.T) {
+	s, sess := testServer(t, &fakeDesktop{})
+	started := time.Now().Truncate(time.Second)
+	record := deliveryRecord{
+		ID: "remote-active", Owner: sess.TokenHash, ThreadID: testThreadID,
+		Text: "刚刚发送", Prompt: "刚刚发送", State: "accepted",
+		UpdatedAt: started.Format(time.RFC3339),
+	}
+	if err := atomicJSON(s.deliveryPath(sess, record.ID), record); err != nil {
+		t.Fatal(err)
+	}
+	data := map[string]any{"turns": []any{map[string]any{
+		"startedAt": int(started.Unix()), "status": "inProgress", "items": []any{},
+	}}}
+	messages := s.restoreRemoteDeliveryMessages(testThreadID, sess.TokenHash, data, desktopMessages(data))
+	if len(messages) != 1 || messages[0].Role != "user" || messages[0].Text != record.Text {
 		t.Fatal(messages)
 	}
 }

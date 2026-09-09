@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 )
@@ -86,7 +87,8 @@ func (s *serverState) handleV11API(w http.ResponseWriter, r *http.Request) bool 
 			break
 		}
 		messages := desktopMessages(data)
-		messages = s.restoreAttachmentMessages(id, messages)
+		messages = s.restoreAttachmentMessages(id, sess.TokenHash, messages)
+		messages = s.restoreRemoteDeliveryMessages(id, sess.TokenHash, data, messages)
 		status := asString(asMap(thread["status"])["type"])
 		page := asMap(data["page"])
 		writeJSON(w, 200, map[string]any{"ok": true, "threadId": id, "available": true, "active": status == "active" || status == "running", "status": status, "messages": messages, "hasMore": page["hasMore"], "cursor": page["nextCursor"]})
@@ -200,6 +202,94 @@ func desktopMessages(data map[string]any) []messageRow {
 				messages = append(messages, messageRow{Seq: len(messages) + 1, Role: "assistant", Text: asString(x["text"]), Timestamp: timestamp})
 			}
 		}
+	}
+	return messages
+}
+
+// Remote app-tool sends enter the destination task as a tool delivery turn,
+// not as a regular userMessage item. Match those turns to the durable receipt
+// so the browser conversation remains complete after refresh.
+func (s *serverState) restoreRemoteDeliveryMessages(threadID, owner string, data map[string]any, messages []messageRow) []messageRow {
+	type deliveryAt struct {
+		record deliveryRecord
+		at     time.Time
+		used   bool
+	}
+	records := []deliveryAt{}
+	for _, record := range s.deliveryRecords(threadID, owner) {
+		if record.State != "accepted" {
+			continue
+		}
+		at, err := time.Parse(time.RFC3339, record.UpdatedAt)
+		if err == nil {
+			records = append(records, deliveryAt{record: record, at: at})
+		}
+	}
+	if len(records) == 0 {
+		return messages
+	}
+
+	for _, turnValue := range asSlice(data["turns"]) {
+		turn := asMap(turnValue)
+		turnAt := time.Unix(int64(intFromAny(turn["startedAt"])), 0)
+		items := asSlice(turn["items"])
+		remoteInput := asString(turn["status"]) == "inProgress" && len(items) == 0
+		for _, itemValue := range items {
+			item := asMap(itemValue)
+			if asString(item["type"]) == "functionCallOutput" && asString(item["name"]) == "send_message_to_thread" {
+				remoteInput = true
+				break
+			}
+		}
+		if !remoteInput {
+			continue
+		}
+
+		best, bestDistance := -1, 91*time.Second
+		for i := range records {
+			if records[i].used {
+				continue
+			}
+			distance := records[i].at.Sub(turnAt)
+			if distance < 0 {
+				distance = -distance
+			}
+			if distance < bestDistance {
+				best, bestDistance = i, distance
+			}
+		}
+		if best < 0 {
+			continue
+		}
+		records[best].used = true
+		record := records[best].record
+		alreadyVisible := false
+		for _, message := range messages {
+			messageAt, err := time.Parse(time.RFC3339, message.Timestamp)
+			if err == nil && message.Role == "user" && messageAt.Equal(turnAt) && (strings.TrimSpace(message.Text) == strings.TrimSpace(record.Text) || strings.TrimSpace(message.Text) == strings.TrimSpace(record.Prompt)) {
+				alreadyVisible = true
+				break
+			}
+		}
+		if alreadyVisible {
+			continue
+		}
+		messages = append(messages, messageRow{Role: "user", Text: record.Text, Timestamp: turnAt.Format(time.RFC3339), Attachments: record.Attachments})
+	}
+
+	sort.SliceStable(messages, func(i, j int) bool {
+		left, leftErr := time.Parse(time.RFC3339, messages[i].Timestamp)
+		right, rightErr := time.Parse(time.RFC3339, messages[j].Timestamp)
+		if leftErr == nil && rightErr == nil && !left.Equal(right) {
+			return left.Before(right)
+		}
+		if messages[i].Role != messages[j].Role {
+			return messages[i].Role == "user"
+		}
+		return false
+	})
+	for i := range messages {
+		messages[i].Seq = i + 1
 	}
 	return messages
 }

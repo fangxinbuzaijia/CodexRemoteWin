@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.11.0-beta.7 - 2026-09-10
+
+- Restored phone-originated messages in browser history after refresh.
+- Matched desktop app-tool delivery turns to durable, device-scoped receipts without exposing tool details.
+- Added a persistent destination label above the composer and named the target task in success confirmations.
+
 ## v0.11.0-beta.6 - 2026-09-08
 
 - Removed the large execution-progress panel from the conversation view.

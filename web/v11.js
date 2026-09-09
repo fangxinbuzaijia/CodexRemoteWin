@@ -29,6 +29,7 @@ style.textContent = `
 .remoteDialog label{display:block;margin:12px 0 6px}.remoteDialog select,.remoteDialog textarea{width:100%;font:inherit;color:inherit;background:var(--raised,#263036);border:1px solid var(--line,#465057);border-radius:4px;padding:10px}.remoteDialog textarea{min-height:100px;resize:vertical}
 .remoteDialog .dialogActions{display:flex;justify-content:flex-end;gap:12px;margin-top:16px}.remoteDialog button{padding:10px 14px;border-radius:5px;color:inherit;background:var(--raised,#263036)}
 .imageDialog{max-width:95vw;width:auto}.imageDialog img{display:block;max-width:85vw;max-height:75dvh;object-fit:contain}.remoteDialog h2{font-size:18px;margin:0}
+.deliveryTarget{display:flex;align-items:center;gap:7px;min-width:0;padding:0 4px 7px;color:var(--faint);font-size:11px}.deliveryTarget strong{min-width:0;color:var(--muted);font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 `;
 document.head.append(style);
 const themeButton = document.createElement('button');
@@ -55,6 +56,10 @@ newDialog.className = 'remoteDialog';
 newDialog.innerHTML = '<form id="newTaskForm"><h2>新建任务</h2><label for="projectChoice">项目</label><select id="projectChoice"></select><label for="environmentChoice">工作目录</label><select id="environmentChoice"><option value="local">使用项目目录</option><option value="worktree">新建工作树</option></select><label for="firstPrompt">第一条消息</label><textarea id="firstPrompt" maxlength="8000" required></textarea><div id="newTaskError" class="queueError" role="alert"></div><div class="dialogActions"><button type="button" id="cancelNew">取消</button><button class="primary" type="submit" id="createNew">创建并发送</button></div></form>';
 document.body.append(newDialog);
 const toastNode = document.createElement('div'); toastNode.className = 'remoteToast'; toastNode.hidden = true; toastNode.setAttribute('role', 'status'); document.body.append(toastNode);
+const deliveryTarget = document.createElement('div'); deliveryTarget.className = 'deliveryTarget'; deliveryTarget.setAttribute('aria-live', 'polite');
+const deliveryTargetLabel = document.createElement('span'); deliveryTargetLabel.textContent = '发送到';
+const deliveryTargetName = document.createElement('strong'); deliveryTargetName.textContent = '未选择任务'; deliveryTarget.append(deliveryTargetLabel, deliveryTargetName);
+$('composer').insertBefore(deliveryTarget, $('attachTray'));
 let toastTimer;
 function toast(message, duration = 7000) { toastNode.textContent = message; toastNode.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => toastNode.hidden = true, duration); }
 function storageRead(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
@@ -125,7 +130,7 @@ function loadDraft() { el.input.value = localStorage.getItem('crw.draft.' + st.s
 function busyComposer() { el.send.disabled = v11.uploading > 0 || !st.selected || !!selected()?.archived; }
 
 const oldSyncHeader = syncHeader;
-syncHeader = function () { oldSyncHeader(); busyComposer(); };
+syncHeader = function () { oldSyncHeader(); deliveryTargetName.textContent = selected()?.title || '未选择任务'; busyComposer(); };
 el.context.hidden = true; el.model.hidden = true;
 $('runDot').parentElement.classList.add('runBadge');
 // The current app-tools catalog has no interrupt operation. Do not claim that an
@@ -278,7 +283,8 @@ function applyReceipt(item, receipt) {
   item.resultThreadId = receipt.threadId; item.clientThreadId = receipt.clientThreadId;
   if (item.status === 'accepted') {
     st.queue = st.queue.filter(x => x !== item);
-    toast('消息已发送', 1800);
+    const target = st.threads.find(x => x.id === (receipt.threadId || item.threadId));
+    toast(target ? '已发送到“' + (target.title || '未命名任务') + '”' : '消息已发送', 2600);
   }
   persistQueue(); renderQueue();
 }
