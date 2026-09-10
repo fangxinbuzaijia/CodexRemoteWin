@@ -473,6 +473,21 @@ func TestProjectPageBootsV11Once(t *testing.T) {
 		t.Fatal("theme must be selected before the body is rendered")
 	}
 }
+
+func TestMobileContentWidthGuards(t *testing.T) {
+	for _, rule := range []string{
+		".messages {\n  width: 100%;\n  overflow-x: hidden;",
+		"touch-action: pan-y;",
+		".messageWrap { overflow: hidden; }",
+		".bubble, .md p, .md li, .md blockquote, .md a, .md code",
+		".codeBlock pre, .codeBlock code",
+	} {
+		if !strings.Contains(webTheme, rule) {
+			t.Fatalf("missing mobile width guard %q", rule)
+		}
+	}
+}
+
 func TestLiveDesktopReadOnly(t *testing.T) {
 	if os.Getenv("CRW_TEST_DESKTOP") != "1" {
 		t.Skip("opt-in local desktop read-only check")

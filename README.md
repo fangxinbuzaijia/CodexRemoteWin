@@ -10,10 +10,10 @@
 
 ## Windows 客户端
 
-- [下载 v0.11.0-beta.7 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.7/CodexRemoteWin.exe)
+- [下载 v0.11.0-beta.8 测试版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.11.0-beta.8/CodexRemoteWin.exe)
 - [下载 v0.10.4 旧版 EXE](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases/download/v0.10.4/CodexRemoteWin.exe)
 - [查看全部版本和校验文件](https://github.com/fangxinbuzaijia/CodexRemoteWin/releases)
-- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.7 测试版。
+- 仓库中的 `client/CodexRemoteWin.exe` 对应 v0.11.0-beta.8 测试版。
 
 ## 功能
 

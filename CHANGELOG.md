@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.11.0-beta.8 - 2026-09-10
+
+- Prevented long paths, links, inline code, and code blocks from widening the mobile page.
+- Kept the conversation viewport locked to the device width while preserving vertical touch scrolling.
+- Added browser regression coverage using long Windows paths, XML, and unbroken strings at mobile widths.
+
 ## v0.11.0-beta.7 - 2026-09-10
 
 - Restored phone-originated messages in browser history after refresh.

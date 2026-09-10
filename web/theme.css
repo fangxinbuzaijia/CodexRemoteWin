@@ -45,7 +45,44 @@
   --scrim: rgba(34, 48, 61, .32);
 }
 
-html, body, .app { color: var(--text); }
+html, body {
+  width: 100%;
+  max-width: 100%;
+  color: var(--text);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.app {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+}
+.main, .messages, .message, .messageWrap, .bubble, .md,
+.md p, .md li, .md blockquote, .md ul, .md ol {
+  min-width: 0;
+  max-width: 100%;
+}
+.messages {
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+.message { width: 100%; }
+.messageWrap { overflow: hidden; }
+.bubble, .md p, .md li, .md blockquote, .md a, .md code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.md a { max-width: 100%; }
+.md code { white-space: pre-wrap; }
+.codeBlock { width: 100%; max-width: 100%; min-width: 0; }
+.codeBlock pre { width: 100%; max-width: 100%; min-width: 0; }
+.codeBlock code { display: block; min-width: 0; }
+.md img, .md video { max-width: 100%; height: auto; }
+.md table { display: block; max-width: 100%; overflow-x: auto; }
 .topbar { background: var(--topbar); }
 .search, .pairCode { background: var(--input-bg); }
 .projectGlyph { background: var(--project-glyph); }
@@ -97,6 +134,11 @@ html, body, .app { color: var(--text); }
   .headActions .runBadge { display: none; }
   .usageLabel { display: none; }
   .usageBadge { min-width: 44px; justify-content: center; padding: 0 6px; }
+  .codeBlock pre, .codeBlock code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 }
 
 @media (max-width: 380px) {

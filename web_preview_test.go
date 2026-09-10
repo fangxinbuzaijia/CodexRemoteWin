@@ -61,7 +61,7 @@ func (p *previewDesktop) Call(_ context.Context, tool string, args map[string]an
 				items = append(items, map[string]any{"type": "agentMessage", "phase": "final", "text": "实时回复完成。"})
 			}
 		} else {
-			items = append(items, map[string]any{"type": "agentMessage", "phase": "final", "text": "这是浏览器自动化测试的模拟回复。\n\n```go\nfmt.Println(\"hello\")\n```"})
+			items = append(items, map[string]any{"type": "agentMessage", "phase": "final", "text": "这是浏览器自动化测试的模拟回复。\n\n`C:\\Users\\Administrator\\Desktop\\very-long-project-name-without-natural-breaks\\release-build-with-a-very-long-name.apk`\n\n```xml\n<automation_id>72</automation_id><decision>DONT_NOTIFY</decision><unbroken>abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789</unbroken>\n```"})
 		}
 		return map[string]any{"thread": map[string]any{"id": id, "status": map[string]any{"type": status}}, "page": map[string]any{"hasMore": false}, "turns": []any{map[string]any{"items": items}}}, nil
 	case "send_message_to_thread":
