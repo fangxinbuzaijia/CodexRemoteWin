@@ -125,21 +125,23 @@ type savedAttachment struct {
 }
 
 type serverState struct {
-	mu       sync.Mutex
-	sendMu   sync.Mutex
-	sessions map[string]session
-	trusted  map[string]session
-	pairCode string
-	host     string
-	port     string
-	home     string
-	dataDir  string
-	audit    *log.Logger
-	recentMu sync.Mutex
-	recent   map[string]sendReceipt
-	cacheMu  sync.Mutex
-	threads  map[string]threadCacheEntry
-	desktop  desktopCaller
+	mu        sync.Mutex
+	sendMu    sync.Mutex
+	sessions  map[string]session
+	trusted   map[string]session
+	pairCode  string
+	host      string
+	port      string
+	home      string
+	dataDir   string
+	audit     *log.Logger
+	recentMu  sync.Mutex
+	recent    map[string]sendReceipt
+	cacheMu   sync.Mutex
+	threads   map[string]threadCacheEntry
+	historyMu sync.Mutex
+	histories map[string]localHistoryCache
+	desktop   desktopCaller
 }
 
 type threadCacheEntry struct {
@@ -148,6 +150,12 @@ type threadCacheEntry struct {
 	FileMTime  int64
 	StateMTime int64
 	IndexMTime int64
+}
+
+type localHistoryCache struct {
+	Path     string
+	Offset   int64
+	Messages []messageRow
 }
 
 type sendReceipt struct {
@@ -1347,6 +1355,159 @@ func (s *serverState) historyPage(id string, before, limit int) ([]messageRow, b
 func (s *serverState) history(id string) ([]messageRow, bool) {
 	messages, available, _, _ := s.historyPage(id, 0, maxHistory)
 	return messages, available
+}
+
+func (s *serverState) localConversationMessages(id string) []messageRow {
+	file := s.fileForThread(id)
+	if file == "" {
+		return nil
+	}
+	info, err := os.Stat(file)
+	if err != nil {
+		return nil
+	}
+
+	s.historyMu.Lock()
+	defer s.historyMu.Unlock()
+	if s.histories == nil {
+		s.histories = map[string]localHistoryCache{}
+	}
+	cache := s.histories[id]
+	if cache.Path != file || info.Size() < cache.Offset {
+		cache = localHistoryCache{Path: file}
+		cache.Offset = info.Size() - 32*1024*1024
+		if cache.Offset < 0 {
+			cache.Offset = 0
+		}
+	}
+	if cache.Offset == info.Size() {
+		return append([]messageRow(nil), cache.Messages...)
+	}
+
+	f, err := os.Open(file)
+	if err != nil {
+		return append([]messageRow(nil), cache.Messages...)
+	}
+	defer f.Close()
+	if cache.Offset > 0 && len(cache.Messages) == 0 {
+		_, _ = f.Seek(cache.Offset, io.SeekStart)
+		discarded, _ := bufio.NewReader(f).ReadBytes('\n')
+		cache.Offset += int64(len(discarded))
+	}
+	_, _ = f.Seek(cache.Offset, io.SeekStart)
+	reader := bufio.NewReaderSize(f, 64*1024)
+	for {
+		line, readErr := reader.ReadBytes('\n')
+		if len(line) > 0 && line[len(line)-1] == '\n' {
+			cache.Offset += int64(len(line))
+			var item map[string]any
+			if json.Unmarshal(line, &item) == nil {
+				for _, message := range logConversationMessages(item) {
+					cache.Messages = appendConversationMessage(cache.Messages, message)
+				}
+			}
+		}
+		if readErr != nil {
+			break
+		}
+	}
+	if len(cache.Messages) > 240 {
+		cache.Messages = append([]messageRow(nil), cache.Messages[len(cache.Messages)-240:]...)
+	}
+	for i := range cache.Messages {
+		cache.Messages[i].Seq = i + 1
+	}
+	s.histories[id] = cache
+	return append([]messageRow(nil), cache.Messages...)
+}
+
+func logConversationMessages(item map[string]any) []messageRow {
+	payload := asMap(item["payload"])
+	timestamp := asString(item["timestamp"])
+	if item["type"] == "event_msg" && payload["type"] == "user_message" {
+		if text := visibleUserText(asString(payload["message"])); text != "" {
+			return []messageRow{{Role: "user", Text: text, Timestamp: timestamp}}
+		}
+	}
+	if item["type"] == "response_item" && payload["type"] == "message" {
+		role := asString(payload["role"])
+		text := strings.TrimSpace(contentText(payload["content"]))
+		if role == "user" {
+			if text = visibleUserText(text); text != "" {
+				return []messageRow{{Role: "user", Text: text, Timestamp: timestamp}}
+			}
+		}
+		if role == "assistant" {
+			phase := asString(payload["phase"])
+			if (phase == "commentary" || phase == "final" || phase == "final_answer" || phase == "") && text != "" {
+				return []messageRow{{Role: "assistant", Text: text, Timestamp: timestamp}}
+			}
+		}
+	}
+	if item["type"] == "event_msg" && payload["type"] == "task_complete" {
+		if text := strings.TrimSpace(asString(payload["last_agent_message"])); text != "" {
+			return []messageRow{{Role: "assistant", Text: text, Timestamp: timestamp}}
+		}
+	}
+	return nil
+}
+
+func visibleUserText(text string) string {
+	text = strings.TrimSpace(text)
+	for _, prefix := range []string{"<environment_context>", "<skills_instructions>", "<app-context>", "<permissions instructions>"} {
+		if strings.HasPrefix(text, prefix) {
+			return ""
+		}
+	}
+	if strings.HasPrefix(text, "# Browser comments:") {
+		if start := strings.Index(text, "\nComment:\n"); start >= 0 {
+			comment := text[start+len("\nComment:\n"):]
+			for _, marker := range []string{"\n\n<in-app-browser-context", "\n\n## My request:"} {
+				if end := strings.Index(comment, marker); end >= 0 {
+					comment = comment[:end]
+				}
+			}
+			if comment = strings.TrimSpace(comment); comment != "" {
+				return comment
+			}
+		}
+	}
+	if strings.HasPrefix(text, "<in-app-browser-context") {
+		const marker = "\n\n## My request:\n"
+		if start := strings.Index(text, marker); start >= 0 {
+			return strings.TrimSpace(text[start+len(marker):])
+		}
+		return ""
+	}
+	return text
+}
+
+func appendConversationMessage(messages []messageRow, message messageRow) []messageRow {
+	message.Text = strings.TrimSpace(message.Text)
+	if message.Text == "" {
+		return messages
+	}
+	messageAt, _ := time.Parse(time.RFC3339Nano, message.Timestamp)
+	for i := len(messages) - 1; i >= 0 && i >= len(messages)-12; i-- {
+		if messages[i].Role != message.Role || strings.TrimSpace(messages[i].Text) != message.Text {
+			continue
+		}
+		existingAt, err := time.Parse(time.RFC3339Nano, messages[i].Timestamp)
+		if err != nil || messageAt.IsZero() || absDuration(messageAt.Sub(existingAt)) <= 5*time.Second {
+			if len(message.Attachments) > 0 {
+				messages[i].Attachments = message.Attachments
+			}
+			return messages
+		}
+	}
+	return append(messages, message)
+}
+
+func absDuration(value time.Duration) time.Duration {
+	if value < 0 {
+		return -value
+	}
+	return value
 }
 
 func (s *serverState) threadStatusData(id string) (threadRow, []map[string]any, bool) {

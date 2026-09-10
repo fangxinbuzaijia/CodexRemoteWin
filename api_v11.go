@@ -89,6 +89,10 @@ func (s *serverState) handleV11API(w http.ResponseWriter, r *http.Request) bool 
 		messages := desktopMessages(data)
 		messages = s.restoreAttachmentMessages(id, sess.TokenHash, messages)
 		messages = s.restoreRemoteDeliveryMessages(id, sess.TokenHash, data, messages)
+		if r.URL.Query().Get("cursor") == "" {
+			messages = mergeConversationMessages(messages, s.localConversationMessages(id))
+			messages = s.mergeAcceptedDeliveries(id, sess.TokenHash, messages)
+		}
 		status := asString(asMap(thread["status"])["type"])
 		page := asMap(data["page"])
 		writeJSON(w, 200, map[string]any{"ok": true, "threadId": id, "available": true, "active": status == "active" || status == "running", "status": status, "messages": messages, "hasMore": page["hasMore"], "cursor": page["nextCursor"]})
@@ -96,6 +100,71 @@ func (s *serverState) handleV11API(w http.ResponseWriter, r *http.Request) bool 
 		s.handleDesktopAction(w, r)
 	}
 	return true
+}
+
+func mergeConversationMessages(groups ...[]messageRow) []messageRow {
+	messages := []messageRow{}
+	for groupIndex, group := range groups {
+		existingLimit := len(messages)
+		matched := map[int]bool{}
+		for _, message := range group {
+			if groupIndex > 0 {
+				match := -1
+				bestDelta := time.Duration(1<<63 - 1)
+				messageAt, _ := time.Parse(time.RFC3339Nano, message.Timestamp)
+				for i := 0; i < existingLimit; i++ {
+					if matched[i] || messages[i].Role != message.Role || strings.TrimSpace(messages[i].Text) != strings.TrimSpace(message.Text) {
+						continue
+					}
+					delta := time.Duration(0)
+					if existingAt, err := time.Parse(time.RFC3339Nano, messages[i].Timestamp); err == nil && !messageAt.IsZero() {
+						delta = absDuration(messageAt.Sub(existingAt))
+					}
+					if match < 0 || delta < bestDelta {
+						match = i
+						bestDelta = delta
+					}
+				}
+				if match >= 0 {
+					matched[match] = true
+					if len(message.Attachments) > 0 && len(messages[match].Attachments) == 0 {
+						messages[match].Attachments = message.Attachments
+					}
+					continue
+				}
+			}
+			messages = appendConversationMessage(messages, message)
+		}
+	}
+	sort.SliceStable(messages, func(i, j int) bool {
+		left, leftErr := time.Parse(time.RFC3339Nano, messages[i].Timestamp)
+		right, rightErr := time.Parse(time.RFC3339Nano, messages[j].Timestamp)
+		if leftErr == nil && rightErr == nil && !left.Equal(right) {
+			return left.Before(right)
+		}
+		if messages[i].Role != messages[j].Role {
+			return messages[i].Role == "user"
+		}
+		return false
+	})
+	if len(messages) > 120 {
+		messages = append([]messageRow(nil), messages[len(messages)-120:]...)
+	}
+	for i := range messages {
+		messages[i].Seq = i + 1
+	}
+	return messages
+}
+
+func (s *serverState) mergeAcceptedDeliveries(threadID, owner string, messages []messageRow) []messageRow {
+	deliveries := []messageRow{}
+	for _, record := range s.deliveryRecords(threadID, owner) {
+		if record.State != "accepted" {
+			continue
+		}
+		deliveries = append(deliveries, messageRow{Role: "user", Text: record.Text, Timestamp: record.UpdatedAt, Attachments: record.Attachments})
+	}
+	return mergeConversationMessages(messages, deliveries)
 }
 
 func normalizeUsage(data map[string]any) map[string]any {
@@ -190,7 +259,9 @@ func desktopMessages(data map[string]any) []messageRow {
 						parts = append(parts, asString(b["text"]))
 					}
 				}
-				messages = append(messages, messageRow{Seq: len(messages) + 1, Role: "user", Text: strings.Join(parts, "\n"), Timestamp: timestamp})
+				if text := visibleUserText(strings.Join(parts, "\n")); text != "" {
+					messages = append(messages, messageRow{Seq: len(messages) + 1, Role: "user", Text: text, Timestamp: timestamp})
+				}
 			case "agentMessage":
 				if x["phase"] == "commentary" {
 					text := strings.TrimSpace(asString(x["text"]))

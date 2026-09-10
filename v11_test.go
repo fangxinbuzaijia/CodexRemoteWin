@@ -387,6 +387,76 @@ func TestRemoteDeliveryAppearsWhileTurnIsInProgress(t *testing.T) {
 	}
 }
 
+func TestLocalConversationReadsModernDesktopMessages(t *testing.T) {
+	s, _ := testServer(t, &fakeDesktop{})
+	dir := filepath.Join(s.sessionsDir(), "2026", "09", "10")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "rollout-test-"+testThreadID+".jsonl")
+	rows := []map[string]any{
+		{"timestamp": "2026-09-10T00:00:00Z", "type": "response_item", "payload": map[string]any{"type": "message", "role": "user", "content": []any{map[string]any{"type": "input_text", "text": "最新问题"}}}},
+		{"timestamp": "2026-09-10T00:00:01Z", "type": "response_item", "payload": map[string]any{"type": "message", "role": "assistant", "phase": "commentary", "content": []any{map[string]any{"type": "output_text", "text": "处理中回复"}}}},
+		{"timestamp": "2026-09-10T00:00:02Z", "type": "response_item", "payload": map[string]any{"type": "message", "role": "assistant", "phase": "final_answer", "content": []any{map[string]any{"type": "output_text", "text": "最终回复"}}}},
+		{"timestamp": "2026-09-10T00:00:03Z", "type": "response_item", "payload": map[string]any{"type": "message", "role": "user", "content": []any{map[string]any{"type": "input_text", "text": "<environment_context>hidden</environment_context>"}}}},
+	}
+	var data strings.Builder
+	for _, row := range rows {
+		encoded, _ := json.Marshal(row)
+		data.Write(encoded)
+		data.WriteByte('\n')
+	}
+	if err := os.WriteFile(path, []byte(data.String()), 0600); err != nil {
+		t.Fatal(err)
+	}
+	messages := s.localConversationMessages(testThreadID)
+	if len(messages) != 3 || messages[0].Text != "最新问题" || messages[1].Text != "处理中回复" || messages[2].Text != "最终回复" {
+		t.Fatal(messages)
+	}
+}
+
+func TestVisibleUserTextExtractsBrowserComment(t *testing.T) {
+	input := "# Browser comments:\n\n## User Comment 1\nComment:\n这消息也没同步啊\n\n<in-app-browser-context source=\"ambient-ui-state\">hidden</in-app-browser-context>\n\n## My request:\n"
+	if got := visibleUserText(input); got != "这消息也没同步啊" {
+		t.Fatal(got)
+	}
+}
+
+func TestVisibleUserTextExtractsRequestAfterBrowserContext(t *testing.T) {
+	input := "<in-app-browser-context source=\"ambient-ui-state\">hidden</in-app-browser-context>\n\n## My request:\n继续任务"
+	if got := visibleUserText(input); got != "继续任务" {
+		t.Fatal(got)
+	}
+}
+
+func TestMergeConversationMessagesDeduplicatesSources(t *testing.T) {
+	desktop := []messageRow{
+		{Role: "user", Text: "同一句", Timestamp: "2026-09-10T00:00:00Z"},
+		{Role: "user", Text: "同一句", Timestamp: "2026-09-10T00:01:00Z"},
+		{Role: "assistant", Text: "回复", Timestamp: "2026-09-10T00:01:01Z"},
+	}
+	local := []messageRow{
+		{Role: "user", Text: "同一句", Timestamp: "2026-09-10T01:00:00Z"},
+		{Role: "user", Text: "同一句", Timestamp: "2026-09-10T01:01:00Z"},
+		{Role: "assistant", Text: "回复", Timestamp: "2026-09-10T01:01:01Z"},
+		{Role: "user", Text: "只在本机记录", Timestamp: "2026-09-10T01:02:00Z"},
+	}
+	messages := mergeConversationMessages(desktop, local)
+	if len(messages) != 4 {
+		t.Fatalf("expected source duplicates to collapse without losing repeated messages: %#v", messages)
+	}
+}
+
+func TestDesktopMessagesExtractBrowserComment(t *testing.T) {
+	data := map[string]any{"turns": []any{map[string]any{"items": []any{
+		map[string]any{"type": "userMessage", "content": []any{map[string]any{"type": "text", "text": "# Browser comments:\n\n## User Comment 1\nComment:\n只显示这句话\n\n<in-app-browser-context>hidden</in-app-browser-context>\n\n## My request:\n"}}},
+	}}}}
+	messages := desktopMessages(data)
+	if len(messages) != 1 || messages[0].Text != "只显示这句话" {
+		t.Fatal(messages)
+	}
+}
+
 func TestHistoryAPIHidesExecutionDetails(t *testing.T) {
 	s, _ := testServer(t, &fakeDesktop{})
 	result := decodeTest(t, testRequest(s, "GET", "/api/status?thread="+testThreadID, nil))
@@ -431,5 +501,10 @@ func TestLiveDesktopReadOnly(t *testing.T) {
 	if normalized["available"] != true || len(asSlice(normalized["windows"])) == 0 {
 		t.Fatal("desktop usage limits unavailable")
 	}
-	t.Logf("Verified %d desktop tasks, %d projects, and %d usage windows", len(rows), len(projects), len(asSlice(normalized["windows"])))
+	currentID := s.desktopContextID()
+	localMessages := s.localConversationMessages(currentID)
+	if len(localMessages) == 0 {
+		t.Fatal("local conversation fallback is empty")
+	}
+	t.Logf("Verified %d desktop tasks, %d projects, %d usage windows, and %d local messages", len(rows), len(projects), len(asSlice(normalized["windows"])), len(localMessages))
 }
